@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  company   String   @default("Al-Waleed Inc Client")
+  role      Role     @default(CLIENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+
+  @@map("users")
+}
+
+model Category {
+  id        Int        @id @default(autoincrement())
+  name      String
+  parentId  Int?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  parent    Category?  @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryToCategory")
+  products  Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id               Int         @id @default(autoincrement())
+  name             String
+  partNo           String?     @unique
+  costPrice        Float?
+  markupPercentage Float?      @default(0)
+  salePrice        Float?      @default(0)
+  categoryId       Int
+  image            String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  orderItems       OrderItem[]
+  category         Category    @relation(fields: [categoryId], references: [id])
+
+  @@map("products")
+}
+
+model Order {
+  id            Int         @id @default(autoincrement())
+  clientId      Int
+  orderNumber   String      @unique
+  status        OrderStatus @default(DRAFT)
+  weekStartDate DateTime
+  deadline      DateTime
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  orderItems    OrderItem[]
+  client        User        @relation(fields: [clientId], references: [id])
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  order     Order    @relation(fields: [orderId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+enum Role {
+  ADMIN
+  CLIENT
+}
+
+enum OrderStatus {
+  DRAFT
+  SUBMITTED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}

@@ -1,0 +1,471 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========== ENUMS ==========
+enum Role {
+  ADMIN
+  CLIENT
+}
+
+enum OrderStatus {
+  DRAFT
+  SUBMITTED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum InternalStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+// Enhanced Invoice Statuses
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+// New Payment Statuses
+enum PaymentStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+// New Payment Methods
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  BANK_TRANSFER
+  CHECK
+  DIGITAL_WALLET
+  OTHER
+}
+
+// New Shipment Statuses
+enum ShipmentStatus {
+  PENDING
+  PACKED
+  SHIPPED
+  IN_TRANSIT
+  DELIVERED
+  RETURNED
+  CANCELLED
+}
+
+// ========== MODELS ==========
+model User {
+  id               Int               @id @default(autoincrement())
+  email            String            @unique
+  password         String
+  name             String
+  company          String            @default("Al-Waleed Inc Client")
+  role             Role              @default(CLIENT)
+  address          String?
+  tel              String?
+  gps              String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  inboundOrders    InboundOrder[]
+  orderControl     OrderControl?
+  outboundInvoices OutboundInvoice[]
+  outboundOrders   OutboundOrder[]
+  quotations       Quotation[]
+
+  @@map("users")
+}
+
+model Customer {
+  id               Int               @id @default(autoincrement())
+  name             String
+  email            String?
+  phone            String?
+  address          String?
+  gps              String?
+  company          String?
+  taxId            String?           // For business customers
+  paymentTerms     String?           // Net 30, Net 60, etc.
+  creditLimit      Float?            @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  quotations       Quotation[]
+  outboundInvoices OutboundInvoice[]  // Add this relation for direct customer invoices
+
+  @@map("customers")
+}
+
+model PublicUser {
+  id          Int       @id @default(autoincrement())
+  email       String    @unique
+  password    String
+  name        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Optional – later we might add:
+  // profile picture, preferences, roles, settings, etc.
+
+  @@map("public_users")
+}
+
+
+model OrderControl {
+  id                   Int       @id @default(autoincrement())
+  userId               Int       @unique
+  imagePath            String?
+  isUnlisted           Boolean   @default(false)
+  showSalePrice        Boolean   @default(false)
+  showQuantity         Boolean   @default(false)
+  timeControlEnabled   Boolean   @default(false)
+  timeControlType      String?
+  timeControlSettings  Json?
+  warningEnabled       Boolean   @default(false)
+  customMessage        String?
+  customMessageActive  Boolean   @default(false)
+  customMessageExpires DateTime?
+  periodStartTime      DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("order_controls")
+}
+
+model Category {
+  id        Int        @id @default(autoincrement())
+  name      String
+  parentId  Int?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  parent    Category?  @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryToCategory")
+  products  Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id                   Int                   @id @default(autoincrement())
+  name                 String
+  partNo               String?               @unique
+  costPrice            Float?
+  markupPercentage     Float?                @default(0)
+  salePrice            Float?                @default(0)
+  categoryId           Int
+  image                String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  minStockLevel        Int?                  @default(10)
+  quantity             Int?                  @default(0)
+  inboundInvoiceItems  InboundInvoiceItem[]
+  inboundOrderItems    InboundOrderItem[]
+  outboundInvoiceItems OutboundInvoiceItem[]
+  outboundOrderItems   OutboundOrderItem[]
+  quotationItems       QuotationItem[]
+  category             Category              @relation(fields: [categoryId], references: [id])
+
+  @@map("products")
+}
+
+model Supplier {
+  id              Int              @id @default(autoincrement())
+  name            String
+  contact         String?
+  email           String?
+  phone           String?
+  address         String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  inboundInvoices InboundInvoice[]
+  outboundOrders  OutboundOrder[]
+
+  @@map("suppliers")
+}
+
+model Quotation {
+  id            Int             @id @default(autoincrement())
+  quotationId   String          @unique
+  customerName  String?
+  customerEmail String?
+  customerPhone String?
+  customerId    Int?
+  customer      Customer?       @relation(fields: [customerId], references: [id])
+  offerDate     DateTime
+  validUntil    DateTime
+  notes         String?
+  subtotal      Float
+  taxRate       Float           @default(0)
+  taxAmount     Float           @default(0)
+  total         Float
+  status        QuotationStatus @default(DRAFT)
+  createdById   Int
+  createdBy     User            @relation(fields: [createdById], references: [id])
+  items         QuotationItem[]
+  sentAt        DateTime?
+  viewedAt      DateTime?
+  acceptedAt    DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  orderConversions QuotationOrderConversion[]
+
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id          Int       @id @default(autoincrement())
+  quotationId Int
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  productId   Int?
+  product     Product?  @relation(fields: [productId], references: [id])
+  name        String
+  partNo      String?
+  description String?
+  image       String?
+  quantity    Int
+  unitPrice   Float
+  totalPrice  Float
+  createdAt   DateTime  @default(now())
+
+  @@map("quotation_items")
+}
+
+model QuotationOrderConversion {
+  id           Int         @id @default(autoincrement())
+  quotationId  Int
+  orderId      Int
+  orderNumber  String
+  convertedAt  DateTime    @default(now())
+  quotation    Quotation   @relation(fields: [quotationId], references: [id])
+  order        InboundOrder @relation(fields: [orderId], references: [id])
+
+  @@map("quotation_order_conversions")
+}
+
+model InboundOrder {
+  id              Int                @id @default(autoincrement())
+  clientId        Int
+  orderNumber     String             @unique
+  status          OrderStatus        @default(DRAFT)
+  internalStatus  InternalStatus     @default(PENDING)
+  weekStartDate   DateTime
+  deadline        DateTime
+  outboundOrderId Int?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  items           InboundOrderItem[]
+  client          User               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  outboundOrder   OutboundOrder?     @relation(fields: [outboundOrderId], references: [id])
+  orderConversions QuotationOrderConversion[]
+
+  @@map("inbound_orders")
+}
+
+model InboundOrderItem {
+  id          Int         @id @default(autoincrement())
+  description String?
+  orderId     Int
+  productId   Int?
+  quantity    Int
+  imagePath   String?
+  isUnlisted  Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  order       InboundOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product?    @relation(fields: [productId], references: [id])
+
+  @@map("inbound_order_items")
+}
+
+model OutboundOrder {
+  id              Int                 @id @default(autoincrement())
+  supplierId      Int
+  clientId        Int?
+  orderNumber     String              @unique
+  status          OrderStatus         @default(DRAFT)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  inboundInvoices InboundInvoice[]
+  inboundOrders   InboundOrder[]
+  items           OutboundOrderItem[]
+  client          User?               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplier        Supplier            @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@map("outbound_orders")
+}
+
+model OutboundOrderItem {
+  id        Int           @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  quantity  Int
+  unitPrice Float
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  order     OutboundOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product       @relation(fields: [productId], references: [id])
+
+  @@map("outbound_order_items")
+}
+
+// Enhanced InboundInvoice model for supplier invoices
+model InboundInvoice {
+  id               Int                   @id @default(autoincrement())
+  supplierId       Int
+  outboundOrderId  Int?                  // Make optional (not all come from orders)
+  invoiceNumber    String                @unique
+  status           InvoiceStatus         @default(DRAFT)
+  paymentStatus    PaymentStatus         @default(PENDING)
+  
+  // Dates
+  issueDate        DateTime              @default(now())
+  dueDate          DateTime?
+  
+  // Financials
+  amount           Float
+  tax              Float                 @default(0)
+  totalAmount      Float
+  paidAmount       Float                 @default(0)
+  balanceDue       Float                 @default(0)
+  
+  // Payment info
+  paymentMethod    PaymentMethod?
+  notes            String?
+  
+  // CSV Import tracking
+  importedFromCsv  Boolean               @default(false)
+  csvFileName      String?
+  importDate       DateTime?
+  
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  
+  // Relations
+  items            InboundInvoiceItem[]
+  outboundOrder    OutboundOrder?        @relation(fields: [outboundOrderId], references: [id], onDelete: Cascade)
+  supplier         Supplier              @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  outboundInvoices OutboundInvoice[]     // Keep for markup process
+
+  @@map("inbound_invoices")
+}
+
+model InboundInvoiceItem {
+  id         Int            @id @default(autoincrement())
+  invoiceId  Int
+  productId  Int
+  quantity   Int
+  unitPrice  Float          // Cost from supplier
+  totalPrice Float
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  invoice    InboundInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product    Product        @relation(fields: [productId], references: [id])
+  
+  // Add relation to outbound items for cost tracking
+  outboundItems OutboundInvoiceItem[] @relation("InboundToOutboundItems")
+
+  @@map("inbound_invoice_items")
+}
+
+// Enhanced OutboundInvoice model for customer invoices with markup
+model OutboundInvoice {
+  id               Int                   @id @default(autoincrement())
+  clientId         Int?                  // For client portal users
+  customerId       Int?                  // For direct customers (sales)
+  inboundInvoiceId Int?                  // Link to source supplier invoice
+  
+  invoiceNumber    String                @unique
+  status           InvoiceStatus         @default(DRAFT)
+  paymentStatus    PaymentStatus         @default(PENDING)
+  shipmentStatus   ShipmentStatus        @default(PENDING)
+  
+  // Dates
+  issueDate        DateTime              @default(now())
+  dueDate          DateTime?
+  sentAt           DateTime?
+  viewedAt         DateTime?
+  paidAt           DateTime?
+  
+  // Financials
+  subtotal         Float
+  taxRate          Float                 @default(0)
+  taxAmount        Float                 @default(0)
+  discount         Float                 @default(0)
+  totalAmount      Float
+  paidAmount       Float                 @default(0)
+  balanceDue       Float                 @default(0)
+  
+  // Markup from inbound invoice
+  baseCost         Float?                // Total cost from inbound invoice
+  markupAmount     Float?                // Markup amount added
+  markupPercentage Float?                // Markup percentage
+  
+  // Payment & Shipping
+  paymentMethod    PaymentMethod?
+  shippingAddress  String?
+  trackingNumber   String?
+  notes            String?
+  terms            String?
+  
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  
+  // Relations
+  items            OutboundInvoiceItem[]
+  client           User?                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  customer         Customer?             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  inboundInvoice   InboundInvoice?       @relation(fields: [inboundInvoiceId], references: [id], onDelete: Cascade)
+
+  @@map("outbound_invoices")
+}
+
+// Enhanced OutboundInvoiceItem for markup tracking
+model OutboundInvoiceItem {
+  id               Int             @id @default(autoincrement())
+  invoiceId        Int
+  productId        Int
+  inboundItemId    Int?            // Link to source inbound invoice item
+  
+  quantity         Int
+  unitPrice        Float           // Selling price to customer
+  totalPrice       Float
+  
+  // Cost tracking for profit calculation
+  unitCost         Float?          // Cost from supplier
+  markupAmount     Float?          // Markup amount per unit
+  markupPercentage Float?          // Markup percentage
+  
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  
+  invoice          OutboundInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product          Product         @relation(fields: [productId], references: [id])
+  inboundItem      InboundInvoiceItem? @relation("InboundToOutboundItems", fields: [inboundItemId], references: [id])
+
+  @@map("outbound_invoice_items")
+}

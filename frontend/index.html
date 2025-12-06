@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ALWALEED</title>
+  </head>
+  <body>
+   <body>
+    <!-- React Mount Point -->
+    <div id="root"></div>
+
+    <!-- Your Modal (can be here, React will render inside #root only) -->
+    <div
+     id="barcodeScannerModal"
+  style="
+    display: none; /* keep hidden on start */
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+    box-sizing: border-box;
+  "
+    >
+      <div style="background: white; padding: 15px; border-radius: 12px; max-width: 95%;
+                  width: 400px; max-height: 90vh; overflow: auto;
+                  box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center;
+                    margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+          <h3 style="margin: 0; font-size: 18px; font-weight: 600;">Barcode Scanner</h3>
+          <button
+            onclick="closeScanner()"
+            style="background: none; border: none; font-size: 24px; cursor: pointer;
+                   color: #666; padding: 0; width: 30px; height: 30px;
+                   display: flex; align-items: center; justify-content: center;"
+          >×</button>
+        </div>
+
+        <video id="scannerVideo"
+               style="width: 100%; height: 250px; border-radius: 8px; background: #000;"></video>
+
+        <div id="scannerResult"
+             style="margin: 15px 0; padding: 12px; background: #e3f2fd; border-radius: 6px;
+                    font-size: 14px; text-align: center; min-height: 20px;"></div>
+
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <button onclick="closeScanner()"
+                  style="background: #dc3545; color: white; border: none; padding: 10px 20px;
+                         border-radius: 6px; cursor: pointer; font-size: 14px; flex: 1;">Close</button>
+        </div>
+      </div>
+    </div>
+    <!-- Scanner Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.9.15/dist/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@undecaf/barcode-detector-polyfill@0.9.23/dist/index.js"></script>
+
+    <!-- Scanner Functions -->
+<script>
+    let detector, stream;
+    let onBarcodeDetectedCallback = null;
+    let scanActive = false;
+
+    function setBarcodeCallback(callback) {
+        onBarcodeDetectedCallback = callback;
+    }
+
+    async function startScanner() {
+        const modal = document.getElementById('barcodeScannerModal');
+        const resultDiv = document.getElementById('scannerResult');
+        const video = document.getElementById('scannerVideo');
+        
+        modal.style.display = 'flex';
+        resultDiv.textContent = 'Starting camera...';
+        scanActive = true;
+
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+            video.srcObject = stream;
+            await video.play();
+        } catch (e) {
+            resultDiv.textContent = 'Camera error: ' + e.message;
+            scanActive = false;
+            return;
+        }
+
+        if (!('BarcodeDetector' in window)) {
+            console.log('Polyfilling BarcodeDetector');
+            window.BarcodeDetector = barcodeDetectorPolyfill.BarcodeDetectorPolyfill;
+        }
+
+        // Create canvas with willReadFrequently to fix the warning
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        detector = new BarcodeDetector({formats:['code_128','ean_13','ean_8','code_39','upc_a','upc_e']});
+        resultDiv.textContent = 'Scanning... Point camera at barcode';
+        
+        // Start the scan loop
+        scanLoop(canvas, ctx);
+    }
+
+    function closeScanner() {
+        scanActive = false;
+        if (stream) {
+            stream.getTracks().forEach(t => t.stop());
+            stream = null;
+        }
+        document.getElementById('barcodeScannerModal').style.display = 'none';
+        document.getElementById('scannerResult').textContent = '';
+    }
+
+    async function scanLoop(canvas, ctx) {
+        const video = document.getElementById('scannerVideo');
+        const resultDiv = document.getElementById('scannerResult');
+        
+        if (!stream || !scanActive) return;
+
+        try {
+            // Set canvas dimensions to match video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Draw video frame to canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Use canvas for detection (better performance)
+            const codes = await detector.detect(canvas);
+            
+            if (codes.length > 0) {
+                const barcode = codes[0].rawValue;
+                resultDiv.textContent = 'Detected: ' + barcode;
+                
+                // Call the React callback if set
+                if (onBarcodeDetectedCallback && scanActive) {
+                    onBarcodeDetectedCallback(barcode);
+                }
+                
+                if (stream) {
+                    stream.getTracks().forEach(t => t.stop());
+                    stream = null;
+                }
+                
+                scanActive = false;
+                setTimeout(closeScanner, 500);
+                return;
+            }
+        } catch (err) {
+            console.error('Detect error:', err);
+        }
+        
+        if (scanActive) {
+            requestAnimationFrame(() => scanLoop(canvas, ctx));
+        }
+    }
+
+    // Close scanner when clicking outside modal
+    document.getElementById('barcodeScannerModal').addEventListener('click', function(e) {
+        if (e.target.id === 'barcodeScannerModal') {
+            closeScanner();
+        }
+    });
+</script>
+
+    <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+/* src/index.css */
+@import "tailwindcss";
+
+@keyframes blink {
+    0%, 100% { 
+        border-color: #ef4444;
+        box-shadow: 0 0 10px #ef4444;
+    }
+    50% { 
+        border-color: #fca5a5;
+        box-shadow: 0 0 5px #fca5a5;
+    }
+}
+
+.blinking-card {
+    animation: blink 1s infinite;
+    border: 2px solid #ef4444 !important;
+}
+
+.new-order-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ef4444;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: blink 0.5s infinite;
+}
+
+

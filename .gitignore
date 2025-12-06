@@ -1,0 +1,37 @@
+# Create comprehensive .gitignore
+cat > .gitignore << 'EOF'
+# ============ BACKEND ============
+backend/node_modules
+backend/.env
+backend/.env.local
+backend/.env.development
+backend/.env.production
+backend/.env.test
+backend/logs
+backend/*.log
+backend/uploads/
+backend/generated/prisma
+
+# ============ FRONTEND ============
+frontend/node_modules
+frontend/dist
+frontend/dist-ssr
+frontend/.env
+frontend/.env.local
+frontend/.env.development
+frontend/.env.production
+frontend/.env.test
+
+# ============ GENERAL ============
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.vscode/
+.idea/
+
+# ============ GIT ============
+.git
+EOF

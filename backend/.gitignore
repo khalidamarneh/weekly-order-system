@@ -1,0 +1,14 @@
+node_modules
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+*.key
+*.pem
+*.crt
+*.log
+logs/
+*.db
+*.sqlite
+/generated/prisma
