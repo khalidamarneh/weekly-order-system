@@ -1,28 +1,140 @@
+
+// Add this before your frontend serving logic
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    nodeEnv: process.env.NODE_ENV
+  });
+});
+
+app.get('/debug-env', (req, res) => {
+  res.json({
+    FRONTEND_URL: process.env.FRONTEND_URL,
+    NODE_ENV: process.env.NODE_ENV,
+    PORT: process.env.PORT,
+    RAILWAY_PUBLIC_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN,
+    hasDatabaseUrl: !!process.env.DATABASE_URL,
+    frontendBuildPath: path.join(__dirname, '../frontend/dist'),
+    frontendBuildExists: fs.existsSync(path.join(__dirname, '../frontend/dist'))
+  });
+});
+
+app.get('/debug-files', (req, res) => {
+  try {
+    const frontendPath = path.join(__dirname, '../frontend/dist');
+    const exists = fs.existsSync(frontendPath);
+    
+    const result = {
+      __dirname: __dirname,
+      backendFiles: fs.readdirSync(__dirname),
+      parentDir: path.join(__dirname, '..'),
+      parentFiles: fs.readdirSync(path.join(__dirname, '..')),
+      frontendPath: frontendPath,
+      frontendExists: exists,
+      frontendFiles: exists ? fs.readdirSync(frontendPath) : 'NOT FOUND',
+      indexHtmlExists: exists ? fs.existsSync(path.join(frontendPath, 'index.html')) : false
+    };
+    
+    res.json(result);
+  } catch (error) {
+    res.json({ error: error.message, stack: error.stack });
+  }
+});
+
+///////
+// ✅ SERVE REACT FRONTEND IN PRODUCTION
 if (process.env.NODE_ENV === 'production') {
-  // The path in Docker container will be different
-  const frontendPath = path.join(__dirname, '../frontend/dist');
+  console.log('🚀 PRODUCTION MODE: Attempting to serve frontend...');
   
-  console.log('🔍 Looking for frontend at:', frontendPath);
+  const frontendPath = path.join(__dirname, '../frontend/dist');
+  console.log(`📁 Looking for frontend at: ${frontendPath}`);
   
   if (fs.existsSync(frontendPath)) {
-    console.log('✅ Found frontend build at:', frontendPath);
-    console.log('📄 Build contents:', fs.readdirSync(frontendPath));
+    console.log(`✅ Found frontend build!`);
+    console.log(`📄 Build contents:`, fs.readdirSync(frontendPath));
     
-    app.use(express.static(frontendPath));
+    // Check if index.html exists
+    const indexPath = path.join(frontendPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      console.log(`✅ Found index.html at: ${indexPath}`);
+    } else {
+      console.log(`❌ index.html NOT FOUND in build!`);
+    }
     
+    // Serve static files
+    app.use(express.static(frontendPath, {
+      index: false, // Don't serve index.html for directory requests
+      extensions: ['html', 'js', 'css', 'png', 'jpg', 'jpeg', 'svg']
+    }));
+    
+    // Catch-all route for SPA
     app.get('*', (req, res, next) => {
-      if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+      // Skip API routes, uploads, and socket.io
+      if (
+        req.path.startsWith('/api') || 
+        req.path.startsWith('/uploads') ||
+        req.path.startsWith('/socket.io') ||
+        req.path.startsWith('/health') ||
+        req.path.startsWith('/debug')
+      ) {
         return next();
       }
+      
+      // Check if it's a file request (has extension)
+      const hasExtension = path.extname(req.path) !== '';
+      
+      if (hasExtension) {
+        // Let express.static handle files
+        return next();
+      }
+      
+      // For all other routes, serve index.html (SPA routing)
+      console.log(`🔄 SPA routing: ${req.path} -> index.html`);
       res.sendFile(path.join(frontendPath, 'index.html'));
     });
+    
+    console.log('🎯 Frontend serving configured successfully');
   } else {
-    console.log('❌ Frontend not found at:', frontendPath);
-    console.log('Current directory:', __dirname);
-    console.log('Directory contents:', fs.readdirSync(__dirname));
-    console.log('Parent contents:', fs.readdirSync(path.join(__dirname, '..')));
+    console.log('❌ Frontend build NOT FOUND at:', frontendPath);
+    console.log('📁 Current directory contents:', fs.readdirSync(__dirname));
+    console.log('📁 Parent directory contents:', fs.readdirSync(path.join(__dirname, '..')));
+    
+    // Fallback: Serve simple HTML
+    app.get('/', (req, res) => {
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Backend Running</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .container { max-width: 800px; margin: 0 auto; }
+            .link { color: #007bff; text-decoration: none; }
+            .link:hover { text-decoration: underline; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>🚀 Backend Server is Running</h1>
+            <p>Frontend build not found at: <code>${frontendPath}</code></p>
+            <h3>Debug Endpoints:</h3>
+            <ul>
+              <li><a class="link" href="/health">/health</a> - Health check</li>
+              <li><a class="link" href="/debug-env">/debug-env</a> - Environment variables</li>
+              <li><a class="link" href="/debug-files">/debug-files</a> - File structure</li>
+            </ul>
+            <p>Check Railway logs for more details.</p>
+          </div>
+        </body>
+        </html>
+      `);
+    });
   }
 }
+
+/////////////////////////////
+
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
