@@ -177,9 +177,14 @@ app.get('/health', (req, res) => {
 if (process.env.NODE_ENV === 'production') {
   console.log('🚀 PRODUCTION MODE: Setting up frontend serving...');
   
-  const frontendPath = path.join(__dirname, '../frontend/dist');
+  const frontendPath = '/app/frontend/dist';
   console.log(`📁 Looking for frontend at: ${frontendPath}`);
-  
+  console.log('🔍 Looking for frontend at:', frontendPath);
+console.log('Exists?', fs.existsSync(frontendPath));
+if (fs.existsSync(frontendPath)) {
+  console.log('Contents:', fs.readdirSync(frontendPath));
+}
+
   if (fs.existsSync(frontendPath)) {
     console.log(`✅ Found frontend build at: ${frontendPath}`);
     console.log(`📄 Build contents:`, fs.readdirSync(frontendPath));
