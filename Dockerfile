@@ -1,29 +1,26 @@
-# Use Node 18 with OpenSSL pre-installed
-FROM node:18-slim
+# ========== STAGE 1: Build Frontend ==========
+FROM node:18-slim AS frontend-builder
+WORKDIR /app/frontend
 
-# Install OpenSSL libraries for Prisma
+COPY frontend/package*.json ./
+RUN npm install
+
+COPY frontend/ ./
+RUN npm run build
+
+# ========== STAGE 2: Build Backend ==========
+FROM node:18-slim
 RUN apt-get update && apt-get install -y openssl
 
 WORKDIR /app
 
-# 1. Copy everything
-COPY . .
+# Copy built frontend from frontend-builder
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-# 2. Install and build frontend
-WORKDIR /app/frontend
-RUN npm install
-RUN npm run build
-
-# 3. Install backend
-WORKDIR /app/backend
+# Copy and setup backend
+COPY backend/ ./
 RUN npm install
 RUN npx prisma generate
-
-# 4. Go back to backend directory for runtime
-WORKDIR /app/backend
-
-# 5. Create uploads directory
 RUN mkdir -p uploads/images
 
-# 6. Start the server
 CMD ["node", "server.js"]
