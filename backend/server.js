@@ -1,139 +1,13 @@
+// backend/server.js - COMPLETE FIXED VERSION
 
-// Add this before your frontend serving logic
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    nodeEnv: process.env.NODE_ENV
-  });
-});
-
-app.get('/debug-env', (req, res) => {
-  res.json({
-    FRONTEND_URL: process.env.FRONTEND_URL,
-    NODE_ENV: process.env.NODE_ENV,
-    PORT: process.env.PORT,
-    RAILWAY_PUBLIC_DOMAIN: process.env.RAILWAY_PUBLIC_DOMAIN,
-    hasDatabaseUrl: !!process.env.DATABASE_URL,
-    frontendBuildPath: path.join(__dirname, '../frontend/dist'),
-    frontendBuildExists: fs.existsSync(path.join(__dirname, '../frontend/dist'))
-  });
-});
-
-app.get('/debug-files', (req, res) => {
-  try {
-    const frontendPath = path.join(__dirname, '../frontend/dist');
-    const exists = fs.existsSync(frontendPath);
-    
-    const result = {
-      __dirname: __dirname,
-      backendFiles: fs.readdirSync(__dirname),
-      parentDir: path.join(__dirname, '..'),
-      parentFiles: fs.readdirSync(path.join(__dirname, '..')),
-      frontendPath: frontendPath,
-      frontendExists: exists,
-      frontendFiles: exists ? fs.readdirSync(frontendPath) : 'NOT FOUND',
-      indexHtmlExists: exists ? fs.existsSync(path.join(frontendPath, 'index.html')) : false
-    };
-    
-    res.json(result);
-  } catch (error) {
-    res.json({ error: error.message, stack: error.stack });
-  }
-});
-
-///////
-// ✅ SERVE REACT FRONTEND IN PRODUCTION
-if (process.env.NODE_ENV === 'production') {
-  console.log('🚀 PRODUCTION MODE: Attempting to serve frontend...');
-  
-  const frontendPath = path.join(__dirname, '../frontend/dist');
-  console.log(`📁 Looking for frontend at: ${frontendPath}`);
-  
-  if (fs.existsSync(frontendPath)) {
-    console.log(`✅ Found frontend build!`);
-    console.log(`📄 Build contents:`, fs.readdirSync(frontendPath));
-    
-    // Check if index.html exists
-    const indexPath = path.join(frontendPath, 'index.html');
-    if (fs.existsSync(indexPath)) {
-      console.log(`✅ Found index.html at: ${indexPath}`);
-    } else {
-      console.log(`❌ index.html NOT FOUND in build!`);
-    }
-    
-    // Serve static files
-    app.use(express.static(frontendPath, {
-      index: false, // Don't serve index.html for directory requests
-      extensions: ['html', 'js', 'css', 'png', 'jpg', 'jpeg', 'svg']
-    }));
-    
-    // Catch-all route for SPA
-    app.get('*', (req, res, next) => {
-      // Skip API routes, uploads, and socket.io
-      if (
-        req.path.startsWith('/api') || 
-        req.path.startsWith('/uploads') ||
-        req.path.startsWith('/socket.io') ||
-        req.path.startsWith('/health') ||
-        req.path.startsWith('/debug')
-      ) {
-        return next();
-      }
-      
-      // Check if it's a file request (has extension)
-      const hasExtension = path.extname(req.path) !== '';
-      
-      if (hasExtension) {
-        // Let express.static handle files
-        return next();
-      }
-      
-      // For all other routes, serve index.html (SPA routing)
-      console.log(`🔄 SPA routing: ${req.path} -> index.html`);
-      res.sendFile(path.join(frontendPath, 'index.html'));
-    });
-    
-    console.log('🎯 Frontend serving configured successfully');
-  } else {
-    console.log('❌ Frontend build NOT FOUND at:', frontendPath);
-    console.log('📁 Current directory contents:', fs.readdirSync(__dirname));
-    console.log('📁 Parent directory contents:', fs.readdirSync(path.join(__dirname, '..')));
-    
-    // Fallback: Serve simple HTML
-    app.get('/', (req, res) => {
-      res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Backend Running</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
-            .container { max-width: 800px; margin: 0 auto; }
-            .link { color: #007bff; text-decoration: none; }
-            .link:hover { text-decoration: underline; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>🚀 Backend Server is Running</h1>
-            <p>Frontend build not found at: <code>${frontendPath}</code></p>
-            <h3>Debug Endpoints:</h3>
-            <ul>
-              <li><a class="link" href="/health">/health</a> - Health check</li>
-              <li><a class="link" href="/debug-env">/debug-env</a> - Environment variables</li>
-              <li><a class="link" href="/debug-files">/debug-files</a> - File structure</li>
-            </ul>
-            <p>Check Railway logs for more details.</p>
-          </div>
-        </body>
-        </html>
-      `);
-    });
-  }
+// ---------- Critical: Environment Variables Setup ----------
+// Only load .env file in DEVELOPMENT, NOT in production (Railway)
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+  console.log('🔧 DEVELOPMENT: Loaded .env file');
+} else {
+  console.log('📡 PRODUCTION: Using Railway environment variables');
 }
-
-/////////////////////////////
 
 const express = require('express');
 const cors = require('cors');
@@ -206,23 +80,35 @@ process.on('SIGINT', async () => { await prisma.$disconnect(); process.exit(0); 
 // ---------- App ----------
 const app = express();
 
+// ---------- HTTP + Socket ----------
+const httpServer = createServer(app);
 
-// ---------- Uploads ----------
-const uploadDir = path.join(__dirname, 'uploads/images');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, `${Date.now()}${path.extname(file.originalname).toLowerCase()}`)
+// ✅ ENHANCED: Secure Socket.IO configuration
+const io = new Server(httpServer, {
+  cors: { 
+    origin: FRONTEND_URL, 
+    methods: ['GET','POST'], 
+    credentials: true 
+  },
+  // ✅ ADDED: Origin validation for WebSocket handshake
+  allowRequest: (req, callback) => {
+    const origin = req.headers.origin;
+    if (origin && origin !== FRONTEND_URL) {
+      return callback('Origin not allowed', false);
+    }
+    callback(null, true);
+  },
+  transports: ['websocket', 'polling']  // ✅ ADDED for Railway
 });
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg','image/png','image/webp','image/gif'];
-    if (!allowed.includes(file.mimetype)) return cb(new Error('Invalid file type'));
-    cb(null, true);
-  }
-});
+
+// Production-specific socket security
+if (NODE_ENV === 'production') {
+  io.engine.on("headers", (headers, req) => {
+    headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+  });
+}
+
+app.set('io', io);
 
 // ---------- Security middleware ----------
 app.use(helmet({
@@ -244,29 +130,6 @@ app.use((req, res, next) => {
 });
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-// ✅ SERVE REACT FRONTEND IN PRODUCTION
-if (process.env.NODE_ENV === 'production') {
-  const frontendPath = path.join(__dirname, '../frontend/dist');
-  
-  if (fs.existsSync(frontendPath)) {
-    console.log('📱 Serving React frontend from:', frontendPath);
-    app.use(express.static(frontendPath));
-    
-    app.get('*', (req, res, next) => {
-      if (
-        req.path.startsWith('/api') || 
-        req.path.startsWith('/uploads') ||
-        req.path.startsWith('/socket.io')
-      ) {
-        return next();
-      }
-      res.sendFile(path.join(frontendPath, 'index.html'));
-    });
-  } else {
-    console.log('⚠️ Frontend build not found at:', frontendPath);
-    console.log('📡 Running in API-only mode');
-  }
-}
 
 // ---------- CORS ----------
 app.use(cors({
@@ -284,35 +147,68 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/register-first-admin', authLimiter);
 app.use('/api/', generalLimiter);
 
-// ---------- HTTP + Socket ----------
-const httpServer = createServer(app);
-
-// ✅ ENHANCED: Secure Socket.IO configuration
-const io = new Server(httpServer, {
-  cors: { 
-    origin: FRONTEND_URL, 
-    methods: ['GET','POST'], 
-    credentials: true 
-  },
-  // ✅ ADDED: Origin validation for WebSocket handshake
-  allowRequest: (req, callback) => {
-    const origin = req.headers.origin;
-    if (origin && origin !== FRONTEND_URL) {
-      return callback('Origin not allowed', false);
-    }
-    callback(null, true);
+// ---------- Uploads ----------
+const uploadDir = path.join(__dirname, 'uploads/images');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => cb(null, `${Date.now()}${path.extname(file.originalname).toLowerCase()}`)
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg','image/png','image/webp','image/gif'];
+    if (!allowed.includes(file.mimetype)) return cb(new Error('Invalid file type'));
+    cb(null, true);
   }
 });
 
-// Production-specific socket security
-if (NODE_ENV === 'production') {
-  io.engine.on("headers", (headers, req) => {
-    headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+// ---------- DEBUG ROUTES ----------
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    nodeEnv: process.env.NODE_ENV
   });
+});
+
+// ✅ SERVE REACT FRONTEND IN PRODUCTION (CORRECT LOCATION - AFTER MIDDLEWARE)
+if (process.env.NODE_ENV === 'production') {
+  console.log('🚀 PRODUCTION MODE: Setting up frontend serving...');
+  
+  const frontendPath = path.join(__dirname, '../frontend/dist');
+  console.log(`📁 Looking for frontend at: ${frontendPath}`);
+  
+  if (fs.existsSync(frontendPath)) {
+    console.log(`✅ Found frontend build at: ${frontendPath}`);
+    console.log(`📄 Build contents:`, fs.readdirSync(frontendPath));
+    
+    // Serve static files
+    app.use(express.static(frontendPath));
+    
+    // Catch-all route for SPA (MUST BE AFTER ALL API ROUTES)
+    app.get('*', (req, res, next) => {
+      if (
+        req.path.startsWith('/api') || 
+        req.path.startsWith('/uploads') ||
+        req.path.startsWith('/socket.io') ||
+        req.path.startsWith('/health')
+      ) {
+        return next();
+      }
+      res.sendFile(path.join(frontendPath, 'index.html'));
+    });
+    
+    console.log('🎯 Frontend serving configured successfully');
+  } else {
+    console.log('❌ Frontend not found at:', frontendPath);
+    console.log('Current directory:', __dirname);
+    console.log('Directory contents:', fs.readdirSync(__dirname));
+    console.log('Parent contents:', fs.readdirSync(path.join(__dirname, '..')));
+    console.log('📡 Running in API-only mode');
+  }
 }
-
-app.set('io', io);
-
 // ---------- JWT helpers ----------
 // COOKIE options
 const COOKIE_OPTIONS = {
@@ -736,6 +632,8 @@ io.use(async (socket, next) => {
   }
 });
 
+
+// ========== YOUR API ROUTES GO HERE ==========
 // ---------------
 // AUTH ROUTES (with security enhancements)
 // ---------------
@@ -5520,7 +5418,6 @@ app.get('/api/reports/:type/export', authenticate, authorizeAdmin, async (req, r
 
 
 // ======== SOCKET.IO CONNECTION HANDLING ========
-// In your server.js, make sure the connection handler is correct:
 io.on('connection', (socket) => {
   console.log('✅ Client connected:', socket.id);
   console.log('🔐 Auth data:', socket.handshake.auth);
@@ -5553,7 +5450,6 @@ io.on('connection', (socket) => {
     timestamp: new Date() 
   });
 });
-
 
 // ======================
 // START THE SERVER
