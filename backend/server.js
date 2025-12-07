@@ -1,13 +1,28 @@
-// backend/server.js
-// ---------- Critical: Environment Variables Setup ----------
-// Only load .env file in DEVELOPMENT, NOT in production (Railway)
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config();
-  console.log('🔧 DEVELOPMENT: Loaded .env file');
-} else {
-  console.log('📡 PRODUCTION: Using Railway environment variables');
+if (process.env.NODE_ENV === 'production') {
+  // The path in Docker container will be different
+  const frontendPath = path.join(__dirname, '../frontend/dist');
+  
+  console.log('🔍 Looking for frontend at:', frontendPath);
+  
+  if (fs.existsSync(frontendPath)) {
+    console.log('✅ Found frontend build at:', frontendPath);
+    console.log('📄 Build contents:', fs.readdirSync(frontendPath));
+    
+    app.use(express.static(frontendPath));
+    
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+        return next();
+      }
+      res.sendFile(path.join(frontendPath, 'index.html'));
+    });
+  } else {
+    console.log('❌ Frontend not found at:', frontendPath);
+    console.log('Current directory:', __dirname);
+    console.log('Directory contents:', fs.readdirSync(__dirname));
+    console.log('Parent contents:', fs.readdirSync(path.join(__dirname, '..')));
+  }
 }
-
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');

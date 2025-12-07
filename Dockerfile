@@ -1,4 +1,4 @@
-# Use Node 18 with OpenSSL pre-installed to fix the Prisma warning
+# Use Node 18 with OpenSSL pre-installed
 FROM node:18-slim
 
 # Install OpenSSL libraries for Prisma
@@ -6,17 +6,24 @@ RUN apt-get update && apt-get install -y openssl
 
 WORKDIR /app
 
-# 1. FIRST, copy ONLY package files for efficient dependency installation
-COPY backend/package*.json ./
+# 1. Copy everything
+COPY . .
 
-# 2. Install dependencies (this step is cached if package.json doesn't change)
+# 2. Install and build frontend
+WORKDIR /app/frontend
 RUN npm install
+RUN npm run build
 
-# 3. NOW, copy the rest of the backend application code
-COPY backend/ ./
-
-# 4. Generate Prisma Client
+# 3. Install backend
+WORKDIR /app/backend
+RUN npm install
 RUN npx prisma generate
 
-# 5. THE KEY FIX: Use the PORT provided by Railway and DO NOT copy local .env
+# 4. Go back to backend directory for runtime
+WORKDIR /app/backend
+
+# 5. Create uploads directory
+RUN mkdir -p uploads/images
+
+# 6. Start the server
 CMD ["node", "server.js"]
