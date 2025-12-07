@@ -1,5 +1,13 @@
 // backend/server.js
-require('dotenv').config();
+// ---------- Critical: Environment Variables Setup ----------
+// Only load .env file in DEVELOPMENT, NOT in production (Railway)
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+  console.log('🔧 DEVELOPMENT: Loaded .env file');
+} else {
+  console.log('📡 PRODUCTION: Using Railway environment variables');
+}
+
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -23,10 +31,37 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const requiredEnvVars = ['JWT_SECRET', 'DATABASE_URL'];
 requiredEnvVars.forEach(envVar => {
   if (!process.env[envVar]) {
-    console.error(`FATAL: ${envVar} not set`);
+    console.error(`FATAL: ${envVar} not set in environment variables`);
+    console.error(`Current NODE_ENV: ${NODE_ENV}`);
+    if (process.env.DATABASE_URL) {
+      try {
+        const dbUrl = new URL(process.env.DATABASE_URL);
+        console.error(`Current DATABASE_URL host: ${dbUrl.hostname}`);
+      } catch (e) {
+        console.error(`Current DATABASE_URL: [REDACTED]`);
+      }
+    }
     process.exit(1);
   }
 });
+
+// Special check: Ensure DATABASE_URL is not pointing to localhost in production
+if (NODE_ENV === 'production') {
+  try {
+    const dbUrl = new URL(process.env.DATABASE_URL);
+    console.log(`🗄️  Production Database host: ${dbUrl.hostname}`);
+    
+    if (dbUrl.hostname === 'localhost' || dbUrl.hostname === '127.0.0.1') {
+      console.error('❌ FATAL: DATABASE_URL is pointing to localhost in production!');
+      console.error('This usually means your .env file is overriding Railway variables');
+      console.error('Please check Railway environment variables and ensure NODE_ENV=production');
+      process.exit(1);
+    }
+  } catch (e) {
+    console.error('❌ Invalid DATABASE_URL format:', e.message);
+    process.exit(1);
+  }
+}
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const COOKIE_SECURE = NODE_ENV === 'production';
@@ -34,7 +69,11 @@ const COOKIE_SAME_SITE = NODE_ENV === 'production' ? 'none' : 'lax';
 
 // ---------- Prisma ----------
 const prisma = new PrismaClient({ log: ['warn', 'error'] });
-prisma.$connect().then(() => console.log('✅ DB connected')).catch(err => { console.error(err); process.exit(1); });
+prisma.$connect().then(() => console.log('✅ DB connected')).catch(err => { 
+  console.error('❌ Database connection failed:', err.message);
+  console.error('Check if DATABASE_URL is correctly set in Railway');
+  process.exit(1); 
+});
 process.on('SIGINT', async () => { await prisma.$disconnect(); process.exit(0); });
 
 // ---------- App ----------
@@ -5399,7 +5438,19 @@ httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Frontend: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Database: ${process.env.DATABASE_URL ? 'Connected' : 'Not configured'}`);
+  
+  // Enhanced database info
+  if (process.env.DATABASE_URL) {
+    try {
+      const dbUrl = new URL(process.env.DATABASE_URL);
+      console.log(`Database: Connected to ${dbUrl.hostname}`);
+    } catch (e) {
+      console.log('Database: Connected (URL format error)');
+    }
+  } else {
+    console.log('Database: Not configured');
+  }
+  
   console.log('WebSocket server: ACTIVE');
   console.log(`=================================`);
 });
