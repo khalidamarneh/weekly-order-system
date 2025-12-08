@@ -164,56 +164,6 @@ const upload = multer({
   }
 });
 
-// ---------- DEBUG ROUTES ----------
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    nodeEnv: process.env.NODE_ENV
-  });
-});
-
-// ✅ SERVE REACT FRONTEND IN PRODUCTION (CORRECT LOCATION - AFTER MIDDLEWARE)
-if (process.env.NODE_ENV === 'production') {
-  console.log('🚀 PRODUCTION MODE: Setting up frontend serving...');
-  
-  const frontendPath = '/app/frontend/dist';
-  console.log(`📁 Looking for frontend at: ${frontendPath}`);
-  console.log('🔍 Looking for frontend at:', frontendPath);
-console.log('Exists?', fs.existsSync(frontendPath));
-if (fs.existsSync(frontendPath)) {
-  console.log('Contents:', fs.readdirSync(frontendPath));
-}
-
-  if (fs.existsSync(frontendPath)) {
-    console.log(`✅ Found frontend build at: ${frontendPath}`);
-    console.log(`📄 Build contents:`, fs.readdirSync(frontendPath));
-    
-    // Serve static files
-    app.use(express.static(frontendPath));
-    
-    // Catch-all route for SPA (MUST BE AFTER ALL API ROUTES)
-    app.get('*', (req, res, next) => {
-      if (
-        req.path.startsWith('/api') || 
-        req.path.startsWith('/uploads') ||
-        req.path.startsWith('/socket.io') ||
-        req.path.startsWith('/health')
-      ) {
-        return next();
-      }
-      res.sendFile(path.join(frontendPath, 'index.html'));
-    });
-    
-    console.log('🎯 Frontend serving configured successfully');
-  } else {
-    console.log('❌ Frontend not found at:', frontendPath);
-    console.log('Current directory:', __dirname);
-    console.log('Directory contents:', fs.readdirSync(__dirname));
-    console.log('Parent contents:', fs.readdirSync(path.join(__dirname, '..')));
-    console.log('📡 Running in API-only mode');
-  }
-}
 // ---------- JWT helpers ----------
 // COOKIE options
 const COOKIE_OPTIONS = {
@@ -642,6 +592,14 @@ io.use(async (socket, next) => {
 // ---------------
 // AUTH ROUTES (with security enhancements)
 // ---------------
+// ---------- DEBUG ROUTES ----------
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    nodeEnv: process.env.NODE_ENV
+  });
+});
 
 // Register first admin (one-time bootstrap)
 app.post('/api/auth/register-first-admin', [
@@ -5421,6 +5379,53 @@ app.get('/api/reports/:type/export', authenticate, authorizeAdmin, async (req, r
   }
 });
 
+
+////////////
+
+
+// ✅ SERVE REACT FRONTEND IN PRODUCTION (CORRECT LOCATION - AFTER MIDDLEWARE)
+if (process.env.NODE_ENV === 'production') {
+  console.log('🚀 PRODUCTION MODE: Setting up frontend serving...');
+  
+  const frontendPath = '/app/frontend/dist';
+  console.log(`📁 Looking for frontend at: ${frontendPath}`);
+  console.log('🔍 Looking for frontend at:', frontendPath);
+console.log('Exists?', fs.existsSync(frontendPath));
+if (fs.existsSync(frontendPath)) {
+  console.log('Contents:', fs.readdirSync(frontendPath));
+}
+
+  if (fs.existsSync(frontendPath)) {
+    console.log(`✅ Found frontend build at: ${frontendPath}`);
+    console.log(`📄 Build contents:`, fs.readdirSync(frontendPath));
+    
+    // Serve static files
+    app.use(express.static(frontendPath));
+    
+    // Catch-all route for SPA (MUST BE AFTER ALL API ROUTES)
+    app.get('*', (req, res, next) => {
+      if (
+        req.path.startsWith('/api') || 
+        req.path.startsWith('/uploads') ||
+        req.path.startsWith('/socket.io') ||
+        req.path.startsWith('/health')
+      ) {
+        return next();
+      }
+      res.sendFile(path.join(frontendPath, 'index.html'));
+    });
+    
+    console.log('🎯 Frontend serving configured successfully');
+  } else {
+    console.log('❌ Frontend not found at:', frontendPath);
+    console.log('Current directory:', __dirname);
+    console.log('Directory contents:', fs.readdirSync(__dirname));
+    console.log('Parent contents:', fs.readdirSync(path.join(__dirname, '..')));
+    console.log('📡 Running in API-only mode');
+  }
+}
+
+////////////
 
 // ======== SOCKET.IO CONNECTION HANDLING ========
 io.on('connection', (socket) => {
