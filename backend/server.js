@@ -587,7 +587,6 @@ io.use(async (socket, next) => {
   }
 });
 
-
 // ========== YOUR API ROUTES GO HERE ==========
 // ---------------
 // AUTH ROUTES (with security enhancements)
@@ -5403,17 +5402,17 @@ if (fs.existsSync(frontendPath)) {
     app.use(express.static(frontendPath));
     
     // Catch-all route for SPA (MUST BE AFTER ALL API ROUTES)
-    app.get('*', (req, res, next) => {
-      if (
-        req.path.startsWith('/api') || 
-        req.path.startsWith('/uploads') ||
-        req.path.startsWith('/socket.io') ||
-        req.path.startsWith('/health')
-      ) {
-        return next();
-      }
-      res.sendFile(path.join(frontendPath, 'index.html'));
-    });
+    //app.get('*', (req, res, next) => {
+      //if (
+        //req.path.startsWith('/api') || 
+        //req.path.startsWith('/uploads') ||
+        //req.path.startsWith('/socket.io') ||
+        //req.path.startsWith('/health')
+      //) {
+      //  return next();
+     // }
+     // res.sendFile(path.join(frontendPath, 'index.html'));
+    //});
     
     console.log('🎯 Frontend serving configured successfully');
   } else {
