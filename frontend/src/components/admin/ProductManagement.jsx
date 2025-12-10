@@ -16,7 +16,9 @@ import {
   SearchIcon
 } from '@heroicons/react/outline';
 
-const BACKEND_URL = 'http://localhost:5000';
+const BACKEND_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 
 // ✅ Optimized debounce hook
 const useDebounce = (value, delay) => {

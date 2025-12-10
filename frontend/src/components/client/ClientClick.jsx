@@ -13,7 +13,9 @@ import {
 } from '@heroicons/react/outline';
 
 // Define BACKEND_URL constant
-const BACKEND_URL = 'http://localhost:5000';
+const BACKEND_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 
 const ClientClick = ({ isDarkMode, orderControl, productToAdd, goToCatalog, goToSummary, onBackToSummary, canSubmitOrder, orderMessage, onTimeRestriction }) => {
   // State for the draft order

@@ -4,7 +4,8 @@ import api from '../../services/api';
 import { PrinterIcon, ShareIcon, TrashIcon, PhotographIcon } from '@heroicons/react/outline';
 
 // Define BACKEND_URL constant (same as ClientClick)
-const BACKEND_URL = 'http://localhost:5000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
 
 const MyOrders = ({ isDarkMode, orderControl }) => {
   const [orders, setOrders] = useState([]);

@@ -10,7 +10,8 @@ import {
   ShoppingCartIcon
 } from '@heroicons/react/outline';
 
-const BACKEND_URL = 'http://localhost:5000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
 const placeholderSvg = `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2U0ZTVlYSIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYzFjNGM4Ij5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=`;
 
 // Custom comparison function for ProductCard
@@ -516,23 +517,33 @@ if (process.env.NODE_ENV === 'development') {
     }
   };
 
-  const optimizeProductImage = (product) => {
-    if (product.image) {
-      let imageUrl = product.image;
+const optimizeProductImage = (product) => {
+  if (!product.image) return product;
 
-      if (imageUrl.startsWith('/uploads/')) {
-        imageUrl = `${BACKEND_URL}${imageUrl}`;
-        if (!imageUrl.includes('?')) {
-          imageUrl += '?width=300&height=200&quality=80';
-        }
-      } else if (!imageUrl.startsWith('http')) {
-        imageUrl = `${BACKEND_URL}/${imageUrl}`.replace('//', '/');
-      }
+  let imageUrl = product.image;
 
-      return { ...product, image: imageUrl };
+  // Case 1: Local uploaded images (e.g., /uploads/abc.jpg)
+  if (imageUrl.startsWith('/uploads/')) {
+    imageUrl = `${BACKEND_URL}${imageUrl}`;
+
+    // Add on-the-fly optimization params only once
+    if (!imageUrl.includes('?')) {
+      imageUrl += '?width=300&height=200&quality=80';
     }
-    return product;
-  };
+  }
+
+  // Case 2: Images stored as relative paths (e.g., "images/abc.png")
+  else if (!imageUrl.startsWith('http')) {
+    imageUrl = `${BACKEND_URL}/${imageUrl}`;
+
+    // Fix accidental double slashes LIKE:
+    // http://localhost:5000//images/abc.png
+    imageUrl = imageUrl.replace(/([^:]\/)\/+/g, '$1');
+  }
+
+  return { ...product, image: imageUrl };
+};
+
 
   const handleShowAllProducts = () => {
     setShowAllProducts(true);

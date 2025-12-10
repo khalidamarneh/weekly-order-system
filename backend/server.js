@@ -1,5 +1,4 @@
 // backend/server.js - COMPLETE FIXED VERSION
-
 // ---------- Critical: Environment Variables Setup ----------
 // Only load .env file in DEVELOPMENT, NOT in production (Railway)
 if (process.env.NODE_ENV !== 'production') {
