@@ -112,7 +112,12 @@ app.set('io', io);
 // ---------- Security middleware ----------
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: NODE_ENV === 'production' ? undefined : false
+  contentSecurityPolicy: NODE_ENV === 'production' ? {
+    useDefaults: true,
+    directives: {
+      "img-src": ["'self'", "data:", "blob:"],
+    }
+  } : false
 }));
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
