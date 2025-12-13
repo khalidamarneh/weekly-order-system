@@ -109,36 +109,41 @@ if (NODE_ENV === 'production') {
 
 app.set('io', io);
 
+/// ---------- Trust proxy (fix rate limiter warning) ----------
+app.set('trust proxy', 1); // Trust first proxy (Railway)
+
 // ---------- Security middleware ----------
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-contentSecurityPolicy: NODE_ENV === 'production' ? {
-  useDefaults: true,
-  directives: {
-    "img-src": ["'self'", "data:", "blob:"],
-    "script-src": [
-      "'self'", 
-      "https://cdn.jsdelivr.net",
-      "'sha256-lpFfKtabg6gWSqLXf0XAjbIRg7wNhoCO1lkqGBlCe1k='"
-    ],
-    "script-src-elem": ["'self'", "https://cdn.jsdelivr.net"],
-    "style-src": ["'self'", "'unsafe-inline'"],
-    "connect-src": ["'self'"],
-  }
-} : false
+  contentSecurityPolicy: false // TEMPORARY: Disable to test CSP issues
 }));
-
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ✅ ADDED: Additional security headers
+// ✅ ADDED: Manual CSP headers for more control
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.removeHeader('X-Powered-By');
+  
+  // Manual CSP - more flexible than helmet
+  res.setHeader(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      "img-src 'self' data: blob: https:",
+      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+      "script-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+      "style-src 'self' 'unsafe-inline'",
+      "font-src 'self'",
+      "connect-src 'self'",
+      "worker-src 'self'"
+    ].join('; ')
+  );
+  
   next();
 });
 
