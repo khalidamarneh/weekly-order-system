@@ -36,8 +36,10 @@ const ProductCard = memo(({ product, isDarkMode, orderControl, onAddToOrder }) =
     const target = e.target;
     const src = target.src;
 
-    if (src.startsWith(`${BACKEND_URL}/uploads/`)) {
+    // Check for relative upload paths or full URLs
+    if (src.includes('/uploads/')) {
       setTimeout(() => {
+        // Remove query parameters and add timestamp
         target.src = src.replace(/\?.*$/, '') + '?t=' + Date.now();
       }, 300);
 
@@ -517,32 +519,40 @@ if (process.env.NODE_ENV === 'development') {
     }
   };
 
-const optimizeProductImage = (product) => {
-  if (!product.image) return product;
+  const optimizeProductImage = (product) => {
+    if (!product.image) return product;
 
-  let imageUrl = product.image;
+    let imageUrl = product.image;
 
-  // Case 1: Local uploaded images (e.g., /uploads/abc.jpg)
-  if (imageUrl.startsWith('/uploads/')) {
-    imageUrl = `${BACKEND_URL}${imageUrl}`;
-
-    // Add on-the-fly optimization params only once
-    if (!imageUrl.includes('?')) {
-      imageUrl += '?width=300&height=200&quality=80';
+    // Case 1: Image is already a full URL (http:// or https://)
+    // Leave it as-is
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return { ...product, image: imageUrl };
     }
-  }
 
-  // Case 2: Images stored as relative paths (e.g., "images/abc.png")
-  else if (!imageUrl.startsWith('http')) {
-    imageUrl = `${BACKEND_URL}/${imageUrl}`;
+    // Case 2: Image is a relative path starting with /uploads/
+    // Don't prepend BACKEND_URL - keep it as a relative path
+    if (imageUrl.startsWith('/uploads/')) {
+      // Add optimization parameters if not already present
+      if (!imageUrl.includes('?')) {
+        imageUrl += '?width=300&height=200&quality=80';
+      }
+      return { ...product, image: imageUrl };
+    }
 
-    // Fix accidental double slashes LIKE:
-    // http://localhost:5000//images/abc.png
-    imageUrl = imageUrl.replace(/([^:]\/)\/+/g, '$1');
-  }
+    // Case 3: Image is stored as a filename without path (rare case)
+    // This assumes it's in the uploads/images folder
+    if (!imageUrl.startsWith('/') && !imageUrl.includes('://')) {
+      imageUrl = `/uploads/images/${imageUrl}`;
+      if (!imageUrl.includes('?')) {
+        imageUrl += '?width=300&height=200&quality=80';
+      }
+      return { ...product, image: imageUrl };
+    }
 
-  return { ...product, image: imageUrl };
-};
+    // Default: return product as-is
+    return product;
+  };
 
 
   const handleShowAllProducts = () => {

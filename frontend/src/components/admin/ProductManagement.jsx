@@ -16,9 +16,7 @@ import {
   SearchIcon
 } from '@heroicons/react/outline';
 
-const BACKEND_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
-
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
 // ✅ Optimized debounce hook
 const useDebounce = (value, delay) => {
@@ -194,9 +192,9 @@ const ProductRow = memo(({ product, isDarkMode, uploading, onEdit, onDelete }) =
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              const imageUrl = product.image.startsWith('/')
-                ? `${BACKEND_URL}${product.image}`
-                : product.image;
+              // If the image is already a full URL (starts with http), use it directly.
+              // Otherwise, it's a relative path from the server root, like '/uploads/...'.
+              const imageUrl = product.image.startsWith('http') ? product.image : product.image;
               window.open(imageUrl, '_blank', 'width=600,height=600');
             }}
             className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 transition-colors dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800"
@@ -266,18 +264,18 @@ const ProductGridCard = memo(({ product, isDarkMode, uploading, onEdit, onDelete
       {/* Product Image */}
       <div className="h-32 bg-gray-100 dark:bg-gray-600 rounded-t-lg overflow-hidden">
         {product.image ? (
-          <button 
+          <button
             onClick={(e) => {
               e.stopPropagation();
-              const imageUrl = product.image.startsWith('/')
-                ? `${BACKEND_URL}${product.image}`
-                : product.image;
+              // If the image is already a full URL (starts with http), use it directly.
+              // Otherwise, it's a relative path from the server root, like '/uploads/...'.
+              const imageUrl = product.image.startsWith('http') ? product.image : product.image;
               window.open(imageUrl, '_blank', 'width=600,height=600');
             }}
             className="w-full h-full"
           >
             <img 
-              src={product.image.startsWith('/') ? `${BACKEND_URL}${product.image}` : product.image} 
+              src={product.image}
               alt={product.name}
               className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
               loading="lazy"
