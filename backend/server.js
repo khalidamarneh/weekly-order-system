@@ -109,41 +109,40 @@ if (NODE_ENV === 'production') {
 
 app.set('io', io);
 
-/// ---------- Trust proxy (fix rate limiter warning) ----------
+// ---------- Trust proxy (fix rate limiter warning) ----------
 app.set('trust proxy', 1); // Trust first proxy (Railway)
 
 // ---------- Security middleware ----------
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: false // TEMPORARY: Disable to test CSP issues
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      "default-src": ["'self'"],
+      "img-src": ["'self'", "data:", "blob:", "https:"],
+      "script-src": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      "script-src-elem": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      "style-src": ["'self'", "'unsafe-inline'"],
+      "connect-src": ["'self'", "https://cdn.jsdelivr.net"],
+      "font-src": ["'self'"],
+      "worker-src": ["'self'", "blob:"],
+      "object-src": ["'none'"],
+      "frame-src": ["'none'"],
+    }
+  }
 }));
+
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ✅ ADDED: Manual CSP headers for more control
+// ✅ ADDED: Additional security headers
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.removeHeader('X-Powered-By');
-  
-  // Manual CSP - more flexible than helmet
-  res.setHeader(
-    'Content-Security-Policy',
-    [
-      "default-src 'self'",
-      "img-src 'self' data: blob: https:",
-      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-      "script-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-      "style-src 'self' 'unsafe-inline'",
-      "font-src 'self'",
-      "connect-src 'self'",
-      "worker-src 'self'"
-    ].join('; ')
-  );
-  
   next();
 });
 
