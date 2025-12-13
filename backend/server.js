@@ -110,15 +110,21 @@ if (NODE_ENV === 'production') {
 app.set('io', io);
 
 // ---------- Security middleware ----------
+// ---------- Security middleware ----------
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   contentSecurityPolicy: NODE_ENV === 'production' ? {
     useDefaults: true,
     directives: {
       "img-src": ["'self'", "data:", "blob:"],
+      "script-src": ["'self'", "https://cdn.jsdelivr.net"],
+      "script-src-elem": ["'self'", "https://cdn.jsdelivr.net"],
+      "style-src": ["'self'", "'unsafe-inline'"],
+      "connect-src": ["'self'"],
     }
   } : false
 }));
+
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
