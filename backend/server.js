@@ -5398,44 +5398,45 @@ app.get('/api/reports/:type/export', authenticate, authorizeAdmin, async (req, r
 ////////////
 
 
-// ✅ SERVE REACT FRONTEND IN PRODUCTION
+// ✅ SERVE REACT FRONTEND IN PRODUCTION (CORRECT LOCATION - AFTER MIDDLEWARE)
 if (process.env.NODE_ENV === 'production') {
   console.log('🚀 PRODUCTION MODE: Setting up frontend serving...');
   
   const frontendPath = '/app/frontend/dist';
-  
+  console.log(`📁 Looking for frontend at: ${frontendPath}`);
+  console.log('🔍 Looking for frontend at:', frontendPath);
+console.log('Exists?', fs.existsSync(frontendPath));
+if (fs.existsSync(frontendPath)) {
+  console.log('Contents:', fs.readdirSync(frontendPath));
+}
+
   if (fs.existsSync(frontendPath)) {
     console.log(`✅ Found frontend build at: ${frontendPath}`);
+    console.log(`📄 Build contents:`, fs.readdirSync(frontendPath));
     
     // Serve static files
     app.use(express.static(frontendPath));
     
-    // Define specific routes for your React app
-    // Add ALL routes that your React Router uses
-    const reactRoutes = ['/', '/login', '/admin', '/client', '/dashboard'];
-    
-    reactRoutes.forEach(route => {
-      app.get(route, (req, res) => {
-        console.log(`🎯 Serving React app for route: ${route}`);
-        res.sendFile(path.join(frontendPath, 'index.html'));
-      });
-    });
-    
-    // Optional: Add a catch-all for unknown routes
-    app.get('*', (req, res, next) => {
-      // Skip API routes
-      if (req.path.startsWith('/api/')) {
-        return next();
-      }
-      // Skip static files
-      if (req.path.includes('.')) {
-        return next();
-      }
-      console.log(`🎯 Catch-all: Serving React app for: ${req.path}`);
-      res.sendFile(path.join(frontendPath, 'index.html'));
-    });
+    // Catch-all route for SPA (MUST BE AFTER ALL API ROUTES)
+    //app.get('*', (req, res, next) => {
+      //if (
+        //req.path.startsWith('/api') || 
+        //req.path.startsWith('/uploads') ||
+        //req.path.startsWith('/socket.io') ||
+        //req.path.startsWith('/health')
+      //) {
+      //  return next();
+     // }
+     // res.sendFile(path.join(frontendPath, 'index.html'));
+    //});
     
     console.log('🎯 Frontend serving configured successfully');
+  } else {
+    console.log('❌ Frontend not found at:', frontendPath);
+    console.log('Current directory:', __dirname);
+    console.log('Directory contents:', fs.readdirSync(__dirname));
+    console.log('Parent contents:', fs.readdirSync(path.join(__dirname, '..')));
+    console.log('📡 Running in API-only mode');
   }
 }
 
