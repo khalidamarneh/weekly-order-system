@@ -25,10 +25,10 @@ export const AuthProvider = ({ children }) => {
     
     try {
       const cookies = document.cookie.split(';');
-      const socketTokenCookie = cookies.find(cookie => 
+      const socketTokenCookie = cookies.find(cookie =>
         cookie.trim().startsWith('socket_token=')
       );
-      
+
       if (socketTokenCookie) {
         const token = socketTokenCookie.split('=')[1];
         if (token) {
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.warn('Failed to extract socket token:', error);
     }
-    
+
     return null;
   };
 
@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ------------------------------
-  // CHECK AUTH ON INITIAL LOAD
+  // CHECK AUTH ON INITIAL LOAD (FIXED VERSION)
   // ------------------------------
   const checkAuth = async () => {
     // If we just logged in, skip one check (avoids race)
@@ -73,10 +73,18 @@ export const AuthProvider = ({ children }) => {
         credentials: "include",
       });
 
-      // If not ok (401 or other), treat as not authenticated — do not throw
-      if (!res.ok) {
+      // ✅ FIXED: Handle 401 silently - it means user is not authenticated
+      if (res.status === 401) {
+        console.log('🔄 User not authenticated (expected 401)');
         setUser(null);
-        // ✅ CLEAR: Clear tokens if auth check fails
+        // Don't clear tokens on 401 - it's a normal state
+        return;
+      }
+
+      // Handle other non-OK responses
+      if (!res.ok) {
+        console.warn('Auth check failed with status:', res.status);
+        setUser(null);
         clearAllAuthTokens();
         return;
       }
@@ -111,10 +119,10 @@ export const AuthProvider = ({ children }) => {
           break;
       }
     } catch (err) {
-      // Keep quiet in dev — treat as unauthenticated
-      if (import.meta.env.DEV) console.warn("Auth check failed (ignored):", err?.message || err);
+      // Network errors, etc.
+      console.log('🔌 Network error during auth check (normal):', err?.message || err);
       setUser(null);
-      clearAllAuthTokens();
+      // Don't clear tokens on network errors
     } finally {
       setLoading(false);
     }
