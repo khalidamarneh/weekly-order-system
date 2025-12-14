@@ -5404,31 +5404,13 @@ if (process.env.NODE_ENV === 'production') {
   
   const frontendPath = '/app/frontend/dist';
   console.log(`📁 Looking for frontend at: ${frontendPath}`);
-  console.log('🔍 Looking for frontend at:', frontendPath);
-console.log('Exists?', fs.existsSync(frontendPath));
-if (fs.existsSync(frontendPath)) {
-  console.log('Contents:', fs.readdirSync(frontendPath));
-}
-
+  
   if (fs.existsSync(frontendPath)) {
     console.log(`✅ Found frontend build at: ${frontendPath}`);
     console.log(`📄 Build contents:`, fs.readdirSync(frontendPath));
     
-    // Serve static files
+    // 1. Serve static files
     app.use(express.static(frontendPath));
-    
-    // Catch-all route for SPA (MUST BE AFTER ALL API ROUTES)
-    //app.get('*', (req, res, next) => {
-      //if (
-        //req.path.startsWith('/api') || 
-        //req.path.startsWith('/uploads') ||
-        //req.path.startsWith('/socket.io') ||
-        //req.path.startsWith('/health')
-      //) {
-      //  return next();
-     // }
-     // res.sendFile(path.join(frontendPath, 'index.html'));
-    //});
     
     console.log('🎯 Frontend serving configured successfully');
   } else {
@@ -5438,6 +5420,28 @@ if (fs.existsSync(frontendPath)) {
     console.log('Parent contents:', fs.readdirSync(path.join(__dirname, '..')));
     console.log('📡 Running in API-only mode');
   }
+}
+
+// ======================
+// 🎯 CRITICAL: ADD THIS 404 HANDLER (AFTER STATIC, BEFORE OTHER MIDDLEWARE)
+// ======================
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    // Skip API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API route not found' });
+    }
+    
+    // Skip file requests (they should be handled by static middleware)
+    if (req.path.includes('.') && !req.path.endsWith('/')) {
+      return next();
+    }
+    
+    // For all other routes, serve React app
+    const frontendPath = '/app/frontend/dist';
+    console.log(`🔄 404 Handler: Serving React for ${req.path}`);
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  });
 }
 
 ////////////
