@@ -183,23 +183,40 @@ const GlobalProductCatalog = ({
     }
   };
 
-  const optimizeProductImage = (product) => {
-    if (product.image) {
-      let imageUrl = product.image;
+ const optimizeProductImage = (product) => {
+  if (!product.image) return product;
 
-      if (imageUrl.startsWith('/uploads/')) {
-        imageUrl = `${BACKEND_URL}${imageUrl}`;
-        if (!imageUrl.includes('?')) {
-          imageUrl += '?width=200&height=150&quality=70';
-        }
-      } else if (!imageUrl.startsWith('http')) {
-        imageUrl = `${BACKEND_URL}/${imageUrl}`.replace('//', '/');
-      }
+  let imageUrl = product.image;
 
-      return { ...product, image: imageUrl };
+  // Case 1: Image is already a full URL (http:// or https://)
+  // Leave it as-is
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    return { ...product, image: imageUrl };
+  }
+
+  // Case 2: Image is a relative path starting with /uploads/
+  // Don't prepend BACKEND_URL - keep it as a relative path
+  if (imageUrl.startsWith('/uploads/')) {
+    // Add optimization parameters if not already present
+    if (!imageUrl.includes('?')) {
+      imageUrl += '?width=300&height=200&quality=80';
     }
-    return product;
-  };
+    return { ...product, image: imageUrl };
+  }
+
+  // Case 3: Image is stored as a filename without path (rare case)
+  // This assumes it's in the uploads/images folder
+  if (!imageUrl.startsWith('/') && !imageUrl.includes('://')) {
+    imageUrl = `/uploads/images/${imageUrl}`;
+    if (!imageUrl.includes('?')) {
+      imageUrl += '?width=300&height=200&quality=80';
+    }
+    return { ...product, image: imageUrl };
+  }
+
+  // Default: return product as-is
+  return product;
+};
 
   // Product selection logic - FIXED to include unitPrice
 // Add this function in GlobalProductCatalog.jsx, inside the component
