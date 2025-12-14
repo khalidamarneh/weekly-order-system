@@ -120,14 +120,13 @@ app.use(helmet({
     directives: {
       "default-src": ["'self'"],
       "img-src": ["'self'", "data:", "blob:", "https:"],
-      "script-src": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-      "script-src-elem": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-      "style-src": ["'self'", "'unsafe-inline'"],
+      "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
+      "script-src-elem": ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
+      "script-src-attr": ["'unsafe-inline'"],  // Fix for inline event handlers
       "connect-src": ["'self'", "https://cdn.jsdelivr.net"],
+      "style-src": ["'self'", "'unsafe-inline'"],
       "font-src": ["'self'"],
       "worker-src": ["'self'", "blob:"],
-      "object-src": ["'none'"],
-      "frame-src": ["'none'"],
     }
   }
 }));
