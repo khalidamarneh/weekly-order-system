@@ -5398,9 +5398,7 @@ app.get('/api/reports/:type/export', authenticate, authorizeAdmin, async (req, r
 ////////////
 
 
-// ======================
-// FRONTEND SERVING
-// ======================
+// ✅ SERVE REACT FRONTEND IN PRODUCTION
 if (process.env.NODE_ENV === 'production') {
   console.log('🚀 PRODUCTION MODE: Setting up frontend serving...');
   
@@ -5412,13 +5410,32 @@ if (process.env.NODE_ENV === 'production') {
     // Serve static files
     app.use(express.static(frontendPath));
     
-    // Catch-all route for client-side routing
-    // Note: No condition needed, just serve index.html
-    app.get('*', (req, res) => {
+    // Define specific routes for your React app
+    // Add ALL routes that your React Router uses
+    const reactRoutes = ['/', '/login', '/admin', '/client', '/dashboard'];
+    
+    reactRoutes.forEach(route => {
+      app.get(route, (req, res) => {
+        console.log(`🎯 Serving React app for route: ${route}`);
+        res.sendFile(path.join(frontendPath, 'index.html'));
+      });
+    });
+    
+    // Optional: Add a catch-all for unknown routes
+    app.get('*', (req, res, next) => {
+      // Skip API routes
+      if (req.path.startsWith('/api/')) {
+        return next();
+      }
+      // Skip static files
+      if (req.path.includes('.')) {
+        return next();
+      }
+      console.log(`🎯 Catch-all: Serving React app for: ${req.path}`);
       res.sendFile(path.join(frontendPath, 'index.html'));
     });
     
-    console.log('🎯 Frontend serving configured with React Router support');
+    console.log('🎯 Frontend serving configured successfully');
   }
 }
 
