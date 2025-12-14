@@ -698,22 +698,37 @@ const InboundOrderStatus = ({ isDarkMode }) => {
     let imageUrl = null;
 
     if (item.imagePath) {
-      imageUrl = `${BACKEND_URL}${item.imagePath}`;
+      imageUrl = item.imagePath;
     } else if (item.product?.image) {
       imageUrl = item.product.image;
     }
 
     if (!imageUrl) return null;
 
+    // If it's already a full URL (http/https), return as-is
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return imageUrl;
+    }
+
+    // For relative paths starting with /uploads/
     if (imageUrl.startsWith('/uploads/')) {
-      imageUrl = `${BACKEND_URL}${imageUrl}`;
+      // In production, DON'T prepend BACKEND_URL - browser will use current domain
       if (optimized && !imageUrl.includes('?')) {
         imageUrl += '?width=200&height=150&quality=70';
       }
-    } else if (!imageUrl.startsWith('http')) {
-      imageUrl = `${BACKEND_URL}/${imageUrl}`.replace('//', '/');
+      return imageUrl;
     }
 
+    // Fallback: assume it's a relative path without leading slash
+    if (!imageUrl.startsWith('/') && !imageUrl.includes('://')) {
+      imageUrl = `/uploads/${imageUrl}`;
+      if (optimized && !imageUrl.includes('?')) {
+        imageUrl += '?width=200&height=150&quality=70';
+      }
+      return imageUrl;
+    }
+
+    // Default: return as-is
     return imageUrl;
   }, []);
 
