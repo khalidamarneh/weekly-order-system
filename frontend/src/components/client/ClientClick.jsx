@@ -565,43 +565,46 @@ const capturePhoto = () => {
                       </td>
                     )}
 
-                    {/* Image Preview Column - FIXED */}
+                    {/* Image Preview Column */}
                     <td className="px-4 py-3 whitespace-nowrap">
-                      {item.imagePath || item.product?.imagePath ? (
+                      {(item.imagePath || item.product?.imagePath || item.product?.image) ? (
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            const imagePath = item.imagePath || item.product?.imagePath;
 
-                            console.log('Image path details:', {
-                              itemImagePath: item.imagePath,
-                              productImagePath: item.product?.imagePath,
-                              finalPath: imagePath
-                            });
+                            // Get image path from all possible sources
+                            const imagePath = item.imagePath || item.product?.imagePath || item.product?.image;
 
                             if (!imagePath) return;
 
                             // Determine the correct image URL
                             let imageUrl;
+
+                            // 1. Already a full URL (http/https)
                             if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-                              // Already a full URL
                               imageUrl = imagePath;
-                            } else if (imagePath.startsWith('/')) {
-                              // Relative path (e.g., /uploads/images/xxx.webp)
-                              // Don't prepend BACKEND_URL - browser will use current domain
+                            }
+                            // 2. Relative path starting with /uploads/
+                            else if (imagePath.startsWith('/uploads/')) {
+                              // DON'T prepend BACKEND_URL - browser will use current domain
                               imageUrl = imagePath;
-                            } else {
-                              // Assume it's a filename in uploads folder
-                              imageUrl = `/uploads/${imagePath}`;
+                            }
+                            // 3. Relative path without leading slash
+                            else if (imagePath.includes('uploads/')) {
+                              // Add leading slash
+                              imageUrl = `/${imagePath}`;
+                            }
+                            // 4. Just a filename
+                            else {
+                              imageUrl = `/uploads/images/${imagePath}`;
                             }
 
-                            console.log('Final image URL:', imageUrl);
                             window.open(imageUrl, '_blank', 'width=600,height=600');
                           }}
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isUnlisted
-                            ? 'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800'
-                            : 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800'
+                              ? 'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800'
+                              : 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-200 dark:hover:bg-green-800'
                             } transition-colors`}
                         >
                           <PhotographIcon className="w-3 h-3 mr-1" />
@@ -609,14 +612,13 @@ const capturePhoto = () => {
                         </button>
                       ) : (
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isUnlisted
-                          ? 'bg-red-50 text-red-600 dark:bg-red-900 dark:text-red-300'
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                            ? 'bg-red-50 text-red-600 dark:bg-red-900 dark:text-red-300'
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                           }`}>
                           No Image
                         </span>
                       )}
                     </td>
-
                     {/* Actions */}
                     <td className="px-4 py-3">
                       <button

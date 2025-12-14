@@ -963,18 +963,85 @@ const InboundOrderStatus = ({ isDarkMode }) => {
   }, [calculateOrderTotal]);
 
  const handlePrint = useCallback((order) => {
-  const printWindow = window.open('', '_blank');
-  const currentOrder = getCurrentOrderData(order);
-  const { saleTotal, costTotal } = calculateDetailedTotals(currentOrder);
-  const itemCount = currentOrder.items.reduce((sum, item) => sum + item.quantity, 0);
-  const showImageInPrint = showImageColumn && currentOrder.items.some(item => 
-    item.imagePath || item.product?.image
-  );
+  const currentOrder = getCurrentOrderData(order) || order;
+  if (!currentOrder || !currentOrder.items) return;
 
-  // Calculate colspan values
-  const baseColspan = 3 + (showAvailableColumn ? 1 : 0) + (showSalePrice ? 1 : 0) + (showCostPrice ? 1 : 0);
-  
-  printWindow.document.write(`
+  const { saleTotal, costTotal, itemCount } = calculateDetailedTotals(currentOrder);
+
+  // Base colspan calculation
+  let baseColspan = 4; // #, Product, Part No, Qty
+  if (showAvailableColumn) baseColspan++;
+  if (showSalePrice) baseColspan++;
+  if (showCostPrice) baseColspan++;
+
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
+  const showImageInPrint = showImageColumn;
+
+  // Helper function to get image URL for print
+  const getPrintImageUrl = (imagePath) => {
+    if (!imagePath) return '';
+    
+    let imageUrl = '';
+    
+    if (imagePath.startsWith('/uploads/')) {
+      // In print window, we need full URL
+      const currentOrigin = window.location.origin;
+      imageUrl = `${currentOrigin}${imagePath}`;
+    } else if (imagePath.startsWith('http')) {
+      // Already a full URL
+      imageUrl = imagePath;
+    } else if (imagePath.includes('uploads/')) {
+      // Path without leading slash
+      const currentOrigin = window.location.origin;
+      imageUrl = `${currentOrigin}/${imagePath}`;
+    }
+    
+    return imageUrl;
+  };
+
+  // Build table rows HTML
+  const tableRows = currentOrder.items.map((item, index) => {
+    const salePrice = item.unitPrice || item.product?.salePrice || 0;
+    const costPrice = item.product?.costPrice || 0;
+    const priceToUse = showCostPrice ? costPrice : salePrice;
+    const itemTotal = priceToUse * item.quantity;
+    const imagePath = item.imagePath || item.product?.image;
+    const partNo = item.product?.partNo;
+    const available = getAvailableQuantity(currentOrder.id, item.id) || '';
+    
+    const imageUrl = getPrintImageUrl(imagePath);
+    const imageCell = showImageInPrint && imageUrl 
+      ? `<td><img src="${imageUrl}" alt="Product Image" class="product-image" /></td>`
+      : showImageInPrint ? '<td></td>' : '';
+    
+    const barcodeCell = showBarcode && partNo 
+      ? `<td><img src="https://barcodeapi.org/api/128/${partNo}" alt="Barcode" style="max-width: 80px; height: 30px;" /></td>`
+      : showBarcode ? '<td></td>' : '';
+    
+    const displayPartNo = partNo ? 
+      (partNo.toString().includes('E+') ? 
+        BigInt(Number(partNo)).toString() : 
+        partNo.toString()) 
+      : 'N/A';
+
+    return `
+      <tr>
+        <td class="compact-text">${index + 1}</td>
+        <td class="compact-text text-left">${item.product?.name || item.description || 'Unlisted Item'}</td>
+        <td class="compact-text part-number">${displayPartNo}</td>
+        ${showAvailableColumn ? `<td class="compact-text">${available}</td>` : ''}
+        ${showSalePrice ? `<td class="compact-text">$${salePrice.toFixed(2)}</td>` : ''}
+        ${showCostPrice ? `<td class="compact-text">$${costPrice.toFixed(2)}</td>` : ''}
+        <td class="compact-text">${item.quantity}</td>
+        ${(showSalePrice || showCostPrice) ? `<td class="compact-text">$${itemTotal.toFixed(2)}</td>` : ''}
+        ${imageCell}
+        ${barcodeCell}
+      </tr>
+    `;
+  }).join('');
+
+  // Build the complete HTML
+  const printHtml = `
     <!DOCTYPE html>
     <html>
     <head>
@@ -1091,34 +1158,7 @@ const InboundOrderStatus = ({ isDarkMode }) => {
           </tr>
         </thead>
         <tbody>
-          ${currentOrder.items.map((item, index) => {
-            const salePrice = item.unitPrice || item.product?.salePrice || 0;
-            const costPrice = item.product?.costPrice || 0;
-            const priceToUse = showCostPrice ? costPrice : salePrice;
-            const itemTotal = priceToUse * item.quantity;
-            const imagePath = item.imagePath || item.product?.imagePath;
-            const partNo = item.product?.partNo;
-            const available = getAvailableQuantity(currentOrder.id, item.id) || '';
-            
-            const displayPartNo = partNo ? 
-              (partNo.toString().includes('E+') ? 
-                BigInt(Number(partNo)).toString() : 
-                partNo.toString()) 
-              : 'N/A';
-
-            return `<tr>
-              <td class="compact-text">${index + 1}</td>
-              <td class="compact-text text-left">${item.product?.name || item.description || 'Unlisted Item'}</td>
-              <td class="compact-text part-number">${displayPartNo}</td>
-              ${showAvailableColumn ? `<td class="compact-text">${available}</td>` : ''}
-              ${showSalePrice ? `<td class="compact-text">$${salePrice.toFixed(2)}</td>` : ''}
-              ${showCostPrice ? `<td class="compact-text">$${costPrice.toFixed(2)}</td>` : ''}
-              <td class="compact-text">${item.quantity}</td>
-              ${(showSalePrice || showCostPrice) ? `<td class="compact-text">$${itemTotal.toFixed(2)}</td>` : ''}
-              ${showImageInPrint ? `<td>${(item.imagePath || item.product?.image) ? `<img src="${BACKEND_URL}${item.imagePath || item.product?.image}" alt="Product Image" class="product-image" />` : ''}</td>` : ''}
-              ${showBarcode && partNo ? `<td><img src="https://barcodeapi.org/api/128/${displayPartNo}" alt="Barcode" style="max-width: 80px; height: 30px;" /></td>` : (showBarcode ? '<td></td>' : '')}
-            </tr>`;
-          }).join('')}
+          ${tableRows}
           
           ${showSalePrice ? `<tr class="total-row">
             <td colspan="${baseColspan}" style="text-align: right;" class="compact-text">Grand Total (Sale):</td>
@@ -1166,11 +1206,12 @@ const InboundOrderStatus = ({ isDarkMode }) => {
       </script>
     </body>
     </html>
-  `);
+  `;
 
+  printWindow.document.write(printHtml);
   printWindow.document.close();
 }, [showOrderInfo, showOrderNumber, showAvailableColumn, showSalePrice, showCostPrice, showImageColumn, showBarcode, printNote, calculateDetailedTotals, getAvailableQuantity, getCurrentOrderData]);
-  
+
 // ✅ Detailed Order View
   if (selectedOrder) {
     const currentOrder = currentSelectedOrder;
