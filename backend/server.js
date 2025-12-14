@@ -5398,42 +5398,27 @@ app.get('/api/reports/:type/export', authenticate, authorizeAdmin, async (req, r
 ////////////
 
 
-// ✅ SERVE REACT FRONTEND IN PRODUCTION (CORRECT LOCATION - AFTER MIDDLEWARE)
+// ======================
+// FRONTEND SERVING
+// ======================
 if (process.env.NODE_ENV === 'production') {
   console.log('🚀 PRODUCTION MODE: Setting up frontend serving...');
   
   const frontendPath = '/app/frontend/dist';
-  console.log(`📁 Looking for frontend at: ${frontendPath}`);
-  console.log('Exists?', fs.existsSync(frontendPath));
   
   if (fs.existsSync(frontendPath)) {
     console.log(`✅ Found frontend build at: ${frontendPath}`);
-    console.log(`📄 Build contents:`, fs.readdirSync(frontendPath));
     
-    // 🎯 CRITICAL: ACTUALLY SERVE THE FRONTEND
-    // 1. Serve static files (CSS, JS, images)
+    // Serve static files
     app.use(express.static(frontendPath));
     
-    // 2. Handle React Router client-side routing
-    // This MUST be after all API routes
+    // Catch-all route for client-side routing
+    // Note: No condition needed, just serve index.html
     app.get('*', (req, res) => {
-      // Skip API routes (let them return 404)
-      if (req.path.startsWith('/api/')) {
-        return res.status(404).json({ error: 'API route not found' });
-      }
-      
-      // For all non-API routes, serve React app
-      console.log(`🎯 Serving React app for route: ${req.path}`);
       res.sendFile(path.join(frontendPath, 'index.html'));
     });
     
     console.log('🎯 Frontend serving configured with React Router support');
-  } else {
-    console.log('❌ Frontend not found at:', frontendPath);
-    console.log('Current directory:', __dirname);
-    console.log('Directory contents:', fs.readdirSync(__dirname));
-    console.log('Parent contents:', fs.readdirSync(path.join(__dirname, '..')));
-    console.log('📡 Running in API-only mode');
   }
 }
 
