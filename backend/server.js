@@ -5404,33 +5404,30 @@ if (process.env.NODE_ENV === 'production') {
   
   const frontendPath = '/app/frontend/dist';
   console.log(`📁 Looking for frontend at: ${frontendPath}`);
-  console.log('🔍 Looking for frontend at:', frontendPath);
-console.log('Exists?', fs.existsSync(frontendPath));
-if (fs.existsSync(frontendPath)) {
-  console.log('Contents:', fs.readdirSync(frontendPath));
-}
-
+  console.log('Exists?', fs.existsSync(frontendPath));
+  
   if (fs.existsSync(frontendPath)) {
     console.log(`✅ Found frontend build at: ${frontendPath}`);
     console.log(`📄 Build contents:`, fs.readdirSync(frontendPath));
     
-    // Serve static files
+    // 🎯 CRITICAL: ACTUALLY SERVE THE FRONTEND
+    // 1. Serve static files (CSS, JS, images)
     app.use(express.static(frontendPath));
     
-    // Catch-all route for SPA (MUST BE AFTER ALL API ROUTES)
-    //app.get('*', (req, res, next) => {
-      //if (
-        //req.path.startsWith('/api') || 
-        //req.path.startsWith('/uploads') ||
-        //req.path.startsWith('/socket.io') ||
-        //req.path.startsWith('/health')
-      //) {
-      //  return next();
-     // }
-     // res.sendFile(path.join(frontendPath, 'index.html'));
-    //});
+    // 2. Handle React Router client-side routing
+    // This MUST be after all API routes
+    app.get('*', (req, res) => {
+      // Skip API routes (let them return 404)
+      if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API route not found' });
+      }
+      
+      // For all non-API routes, serve React app
+      console.log(`🎯 Serving React app for route: ${req.path}`);
+      res.sendFile(path.join(frontendPath, 'index.html'));
+    });
     
-    console.log('🎯 Frontend serving configured successfully');
+    console.log('🎯 Frontend serving configured with React Router support');
   } else {
     console.log('❌ Frontend not found at:', frontendPath);
     console.log('Current directory:', __dirname);
