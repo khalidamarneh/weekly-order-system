@@ -18,11 +18,11 @@ export const AuthProvider = ({ children }) => {
   // ------------------------------
   // SECURE SOCKET TOKEN MANAGEMENT
   // ------------------------------
-  
+
   // ✅ SECURE: Extract socket token from cookies and store in localStorage
   const extractAndStoreSocketToken = () => {
     if (typeof window === 'undefined') return null;
-    
+
     try {
       const cookies = document.cookie.split(';');
       const socketTokenCookie = cookies.find(cookie =>
@@ -68,24 +68,27 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
 
+      // In your checkAuth function, replace the fetch with this:
       const res = await fetch("/api/auth/user", {
         method: "GET",
         credentials: "include",
-      });
+        // Add this to prevent browser logging for 401
+        headers: {
+          'X-Silent-Auth': 'true' // Custom header to identify this request
+        }
+      }).catch(() => null); // Silently catch network errors
 
-      // ✅ FIXED: Handle 401 silently - it means user is not authenticated
-      if (res.status === 401) {
-        console.log('🔄 User not authenticated (expected 401)');
+      if (!res) {
+        // Network error - silently handle
         setUser(null);
-        // Don't clear tokens on 401 - it's a normal state
+        setLoading(false);
         return;
       }
 
-      // Handle other non-OK responses
-      if (!res.ok) {
-        console.warn('Auth check failed with status:', res.status);
+      // 401 is expected - handle silently
+      if (res.status === 401) {
         setUser(null);
-        clearAllAuthTokens();
+        setLoading(false);
         return;
       }
 

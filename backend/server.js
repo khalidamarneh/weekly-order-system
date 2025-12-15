@@ -5396,7 +5396,10 @@ app.get('/api/reports/:type/export', authenticate, authorizeAdmin, async (req, r
 
 
 ////////////
-
+app.get('/favicon.ico', (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend/dist/favicon.ico'));
+});
+////////////
 
 // ✅ SERVE REACT FRONTEND IN PRODUCTION (CORRECT LOCATION - AFTER MIDDLEWARE)
 if (process.env.NODE_ENV === 'production') {
