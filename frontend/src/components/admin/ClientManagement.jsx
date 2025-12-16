@@ -10,19 +10,20 @@ import {
   LocationMarkerIcon,
   DownloadIcon,
   KeyIcon,
+  LockClosedIcon,
+  LockOpenIcon,
+  ExclamationIcon,
+  ShieldCheckIcon
 } from "@heroicons/react/outline";
 import Papa from "papaparse";
 import socketService from "../../services/socket";
 
 /**
- * ClientManagement
- * - cookie-based auth (no token in localStorage)
- * - admin can create/update/delete users
- * - admin can reset password or generate a temporary password (shown once)
- *
- * NOTE: We do NOT attempt to retrieve plaintext passwords from the DB (impossible / insecure).
- * Instead we provide a generate-temp-password action that resets password to a random one
- * and returns it to the admin so they can communicate it securely to the user.
+ * ClientManagement - FIRST ADMIN ONLY
+ * - Only the FIRST ADMIN (oldest admin) can create/update/delete users
+ * - All admins can view users list
+ * - First admin can reset passwords for any user
+ * - Password requirements: Minimum 6 characters
  */
 const ClientManagement = ({ isDarkMode }) => {
   const { user: currentUser } = useAuth();
@@ -30,8 +31,10 @@ const ClientManagement = ({ isDarkMode }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [info, setInfo] = useState(null); // For success/info messages
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [isFirstAdmin, setIsFirstAdmin] = useState(false);
 
   const [openModal, setOpenModal] = useState(false);
   const [modalData, setModalData] = useState({
@@ -52,10 +55,48 @@ const ClientManagement = ({ isDarkMode }) => {
     userName: "",
     newPassword: "",
     confirmPassword: "",
+    showPassword: false,
   });
 
   // Helper: base API (relative so Vite proxy or same origin works)
   const apiBase = "";
+
+  // Check if current user is first admin
+  const checkFirstAdminStatus = async () => {
+    if (!currentUser || currentUser.role !== 'ADMIN') {
+      setIsFirstAdmin(false);
+      return;
+    }
+
+    try {
+      // Try to perform a first-admin-only action to check permissions
+      const testUser = users.find(u => u.id !== currentUser.id);
+      if (testUser) {
+        // Try to update a user (will fail if not first admin)
+        try {
+          await axios.put(`${apiBase}/api/clients/${testUser.id}`, {
+            name: testUser.name,
+            email: testUser.email
+          }, {
+            withCredentials: true,
+            timeout: 5000 // Short timeout for check
+          });
+          setIsFirstAdmin(true);
+        } catch (err) {
+          if (err.response?.status === 403 && 
+              err.response?.data?.message?.includes('first admin')) {
+            setIsFirstAdmin(false);
+          } else {
+            // Other error, assume not first admin
+            setIsFirstAdmin(false);
+          }
+        }
+      }
+    } catch (err) {
+      console.log('First admin check inconclusive:', err.message);
+      setIsFirstAdmin(false);
+    }
+  };
 
   // Fetch all users
   const fetchUsers = async () => {
@@ -96,15 +137,20 @@ const ClientManagement = ({ isDarkMode }) => {
     fetchUsers();
   }, []);
 
-  // Optional: Ensure socket connection (if this screen uses real-time updates)
+  // Check first admin status when users load
+  useEffect(() => {
+    if (users.length > 0 && currentUser?.role === 'ADMIN') {
+      checkFirstAdminStatus();
+    }
+  }, [users, currentUser]);
+
+  // Optional: Ensure socket connection
   useEffect(() => {
     let mounted = true;
     const initSocket = async () => {
       try {
-        // Try to connect using cookie token if available server-side
         await socketService.connect().catch(() => null);
       } catch (err) {
-        // not critical
         console.warn("Socket init error:", err?.message || err);
       }
     };
@@ -114,7 +160,24 @@ const ClientManagement = ({ isDarkMode }) => {
     };
   }, []);
 
+  // Helper to show info messages
+  const showInfo = (message, duration = 3000) => {
+    setInfo(message);
+    setTimeout(() => setInfo(null), duration);
+  };
+
+  // Helper to show errors
+  const showError = (message, duration = 5000) => {
+    setError(message);
+    setTimeout(() => setError(null), duration);
+  };
+
   const openAddModal = () => {
+    if (!isFirstAdmin) {
+      showError("Only the first admin can add new users");
+      return;
+    }
+    
     setModalData({
       id: null,
       email: "",
@@ -131,6 +194,11 @@ const ClientManagement = ({ isDarkMode }) => {
   };
 
   const openEditModal = (user) => {
+    if (!isFirstAdmin) {
+      showError("Only the first admin can edit users");
+      return;
+    }
+    
     setModalData({
       id: user.id,
       email: user.email || "",
@@ -147,11 +215,17 @@ const ClientManagement = ({ isDarkMode }) => {
   };
 
   const openResetPasswordModal = (user) => {
+    if (!isFirstAdmin) {
+      showError("Only the first admin can reset passwords");
+      return;
+    }
+    
     setResetPasswordData({
       userId: user.id,
       userName: user.name,
       newPassword: "",
       confirmPassword: "",
+      showPassword: false,
     });
     setResetPasswordModal(true);
     setError(null);
@@ -165,15 +239,20 @@ const ClientManagement = ({ isDarkMode }) => {
     e.preventDefault();
     setError(null);
 
+    if (!isFirstAdmin) {
+      showError("Only the first admin can modify users");
+      return;
+    }
+
     // basic validation
     if (!modalData.email || !modalData.name) {
-      setError("Name and email are required");
+      showError("Name and email are required");
       return;
     }
 
     // when creating a user, password required
     if (!modalData.id && (!modalData.password || modalData.password.length < 6)) {
-      setError("Password is required and must be at least 6 characters");
+      showError("Password is required and must be at least 6 characters");
       return;
     }
 
@@ -189,9 +268,7 @@ const ClientManagement = ({ isDarkMode }) => {
           address: modalData.address,
           tel: modalData.tel,
           gps: modalData.gps,
-          // role optional: only send if admin provided it
           ...(modalData.role ? { role: modalData.role } : {}),
-          // password: only send if provided
           ...(modalData.password ? { password: modalData.password } : {}),
         };
 
@@ -199,6 +276,8 @@ const ClientManagement = ({ isDarkMode }) => {
           withCredentials: true,
           timeout: 10000,
         });
+        
+        showInfo("User updated successfully");
       } else {
         // Create new user
         const payload = {
@@ -216,27 +295,44 @@ const ClientManagement = ({ isDarkMode }) => {
           withCredentials: true,
           timeout: 10000,
         });
+        
+        showInfo("User created successfully");
       }
 
       setOpenModal(false);
       await fetchUsers();
     } catch (err) {
       console.error("Failed to save user:", err);
-      setError(
-        err?.response?.data?.message || "Error saving user. Please try again."
-      );
+      const errorMsg = err?.response?.data?.message || "Error saving user. Please try again.";
+      
+      // Check if it's a first-admin restriction error
+      if (err.response?.status === 403 && 
+          err.response?.data?.message?.includes('first admin')) {
+        showError("Only the first admin can modify users");
+        setIsFirstAdmin(false);
+      } else {
+        showError(errorMsg);
+      }
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (id === currentUser?.id) {
-      setError("You cannot delete your own account");
+    if (!isFirstAdmin) {
+      showError("Only the first admin can delete users");
       return;
     }
 
-    if (!window.confirm("Are you sure you want to delete this user?")) return;
+    if (id === currentUser?.id) {
+      showError("You cannot delete your own account");
+      return;
+    }
+
+    const userToDelete = users.find(u => u.id === id);
+    if (!userToDelete) return;
+
+    if (!window.confirm(`Are you sure you want to delete ${userToDelete.name} (${userToDelete.email})? This action cannot be undone.`)) return;
 
     try {
       setDeleting(id);
@@ -244,12 +340,20 @@ const ClientManagement = ({ isDarkMode }) => {
         withCredentials: true,
         timeout: 10000,
       });
+      
+      showInfo("User deleted successfully");
       await fetchUsers();
     } catch (err) {
       console.error("Failed to delete user:", err);
-      setError(
-        err?.response?.data?.message || "Error deleting user. Please try again."
-      );
+      const errorMsg = err?.response?.data?.message || "Error deleting user. Please try again.";
+      
+      if (err.response?.status === 403 && 
+          err.response?.data?.message?.includes('first admin')) {
+        showError("Only the first admin can delete users");
+        setIsFirstAdmin(false);
+      } else {
+        showError(errorMsg);
+      }
     } finally {
       setDeleting(null);
     }
@@ -259,12 +363,17 @@ const ClientManagement = ({ isDarkMode }) => {
     e.preventDefault();
     setError(null);
 
+    if (!isFirstAdmin) {
+      showError("Only the first admin can reset passwords");
+      return;
+    }
+
     if (resetPasswordData.newPassword !== resetPasswordData.confirmPassword) {
-      setError("Passwords don't match");
+      showError("Passwords don't match");
       return;
     }
     if (resetPasswordData.newPassword.length < 6) {
-      setError("Password must be at least 6 characters long");
+      showError("Password must be at least 6 characters long");
       return;
     }
 
@@ -277,13 +386,18 @@ const ClientManagement = ({ isDarkMode }) => {
       );
 
       setResetPasswordModal(false);
-      setError("Password reset successfully!");
-      setTimeout(() => setError(null), 3000);
+      showInfo(`Password reset successfully for ${resetPasswordData.userName}`);
     } catch (err) {
       console.error("Failed to reset password:", err);
-      setError(
-        err?.response?.data?.message || "Error resetting password. Please try again."
-      );
+      const errorMsg = err?.response?.data?.message || "Error resetting password. Please try again.";
+      
+      if (err.response?.status === 403 && 
+          err.response?.data?.message?.includes('first admin')) {
+        showError("Only the first admin can reset passwords");
+        setIsFirstAdmin(false);
+      } else {
+        showError(errorMsg);
+      }
     } finally {
       setSaving(false);
     }
@@ -291,6 +405,11 @@ const ClientManagement = ({ isDarkMode }) => {
 
   // Generate a secure-ish temporary password, set it and show it once to admin
   const generateTempPassword = async (userId, userName) => {
+    if (!isFirstAdmin) {
+      showError("Only the first admin can reset passwords");
+      return;
+    }
+
     if (!window.confirm(`Generate a temporary password for ${userName}?`)) return;
 
     const temp = makeTempPassword(10);
@@ -304,14 +423,35 @@ const ClientManagement = ({ isDarkMode }) => {
 
       // Show it to admin — instruct to give securely to user
       alert(
-        `Temporary password for ${userName}:\n\n${temp}\n\nShare it securely with the user. They should change it after login.`
+        `🔐 TEMPORARY PASSWORD for ${userName}:\n\n` +
+        `📋 ${temp}\n\n` +
+        `⚠️  IMPORTANT:\n` +
+        `• Share this password SECURELY with the user\n` +
+        `• User should change it immediately after login\n` +
+        `• This password will only be shown ONCE\n\n` +
+        `Click OK to copy to clipboard`
       );
+      
+      // Copy to clipboard
+      navigator.clipboard.writeText(temp).then(() => {
+        console.log('Password copied to clipboard');
+      }).catch(err => {
+        console.log('Failed to copy to clipboard:', err);
+      });
+      
+      showInfo(`Temporary password generated for ${userName}`);
     } catch (err) {
       console.error("Failed to generate temp password:", err);
-      setError(
-        err?.response?.data?.message ||
-          "Failed to generate temporary password. Please try again."
-      );
+      const errorMsg = err?.response?.data?.message ||
+          "Failed to generate temporary password. Please try again.";
+      
+      if (err.response?.status === 403 && 
+          err.response?.data?.message?.includes('first admin')) {
+        showError("Only the first admin can reset passwords");
+        setIsFirstAdmin(false);
+      } else {
+        showError(errorMsg);
+      }
     } finally {
       setSaving(false);
     }
@@ -330,7 +470,7 @@ const ClientManagement = ({ isDarkMode }) => {
   // CSV export
   const exportUsers = () => {
     if (!users || users.length === 0) {
-      setError("No users to export");
+      showError("No users to export");
       return;
     }
 
@@ -362,9 +502,11 @@ const ClientManagement = ({ isDarkMode }) => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      showInfo("CSV exported successfully");
     } catch (err) {
       console.error("Export failed:", err);
-      setError("Failed to export users");
+      showError("Failed to export users");
     }
   };
 
@@ -372,6 +514,21 @@ const ClientManagement = ({ isDarkMode }) => {
     setError(null);
     fetchUsers();
   };
+
+  // Show first admin badge
+  const FirstAdminBadge = () => (
+    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ml-2 ${isDarkMode ? 'bg-purple-900 text-purple-200' : 'bg-purple-100 text-purple-800'}`}>
+      <ShieldCheckIcon className="w-3 h-3 mr-1" />
+      First Admin
+    </div>
+  );
+
+  // Admin badge (non-first admin)
+  const AdminBadge = () => (
+    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ml-2 ${isDarkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-800'}`}>
+      Admin
+    </div>
+  );
 
   return (
     <div
@@ -382,15 +539,23 @@ const ClientManagement = ({ isDarkMode }) => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
-          <h1
-            className={`text-xl sm:text-2xl font-semibold ${
-              isDarkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            User Management
-          </h1>
+          <div className="flex items-center">
+            <h1
+              className={`text-xl sm:text-2xl font-semibold ${
+                isDarkMode ? "text-white" : "text-gray-900"
+              }`}
+            >
+              User Management
+            </h1>
+            {currentUser?.role === 'ADMIN' && isFirstAdmin && <FirstAdminBadge />}
+            {currentUser?.role === 'ADMIN' && !isFirstAdmin && <AdminBadge />}
+          </div>
           <p className={`mt-1 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-            Manage all users (Admins & Clients)
+            {isFirstAdmin 
+              ? "First Admin: You can manage all users" 
+              : currentUser?.role === 'ADMIN' 
+                ? "Admin: View-only access (only First Admin can modify users)" 
+                : "Client: User list view"}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -402,17 +567,38 @@ const ClientManagement = ({ isDarkMode }) => {
             <DownloadIcon className="w-4 h-4 mr-2" />
             Export CSV
           </button>
-          <button
-            onClick={openAddModal}
-            className="flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-200"
-          >
-            <PlusIcon className="w-4 h-4 mr-2" />
-            Add User
-          </button>
+          {isFirstAdmin && (
+            <button
+              onClick={openAddModal}
+              className="flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-200"
+            >
+              <PlusIcon className="w-4 h-4 mr-2" />
+              Add User
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Error */}
+      {/* Info Message */}
+      {info && (
+        <div
+          className={`mb-4 p-4 rounded-lg border ${
+            isDarkMode ? "bg-green-900/20 border-green-700 text-green-200" : "bg-green-50 border-green-200 text-green-800"
+          }`}
+        >
+          <div className="flex justify-between items-center">
+            <span>{info}</span>
+            <button
+              onClick={() => setInfo(null)}
+              className="ml-4 px-3 py-1 text-sm bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Error Message */}
       {error && (
         <div
           className={`mb-4 p-4 rounded-lg border ${
@@ -421,12 +607,20 @@ const ClientManagement = ({ isDarkMode }) => {
         >
           <div className="flex justify-between items-center">
             <span>{error}</span>
-            <button
-              onClick={handleRetry}
-              className="ml-4 px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
-            >
-              Retry
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleRetry}
+                className="ml-4 px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+              >
+                Retry
+              </button>
+              <button
+                onClick={() => setError(null)}
+                className="px-3 py-1 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -455,51 +649,61 @@ const ClientManagement = ({ isDarkMode }) => {
               >
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1 min-w-0">
-                    <h3 className={`text-lg font-medium truncate ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                      {u.name} {u.id === currentUser?.id && "(You)"}
-                    </h3>
-                    <p className={`text-sm ${u.role === "ADMIN" ? "text-red-500" : "text-blue-600"}`}>{u.role}</p>
+                    <div className="flex items-center">
+                      <h3 className={`text-lg font-medium truncate ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                        {u.name} {u.id === currentUser?.id && "(You)"}
+                      </h3>
+                      {u.role === 'ADMIN' && u.id === currentUser?.id && isFirstAdmin && <FirstAdminBadge />}
+                      {u.role === 'ADMIN' && u.id === currentUser?.id && !isFirstAdmin && <AdminBadge />}
+                    </div>
+                    <p className={`text-sm ${u.role === "ADMIN" ? "text-red-500" : "text-blue-600"}`}>
+                      {u.role} {u.role === 'ADMIN' && u.id !== currentUser?.id && '(Cannot modify users)'}
+                    </p>
                   </div>
 
                   <div className="flex space-x-2 ml-2">
-                    {/* Generate temp password */}
-                    {currentUser?.role === "ADMIN" && (
+                    {/* Generate temp password (First Admin only) */}
+                    {isFirstAdmin && u.id !== currentUser?.id && (
                       <button
                         onClick={() => generateTempPassword(u.id, u.name)}
                         disabled={saving}
-                        title="Generate temporary password"
+                        title="Generate temporary password (First Admin only)"
                         className={`text-indigo-600 hover:text-indigo-800 p-1 disabled:opacity-50 ${isDarkMode ? "hover:text-indigo-300" : ""}`}
                       >
                         <KeyIcon className="w-4 h-4" />
                       </button>
                     )}
 
-                    {/* Reset password (manual) */}
-                    <button
-                      onClick={() => openResetPasswordModal(u)}
-                      disabled={saving}
-                      title="Reset password (set manually)"
-                      className={`text-green-600 hover:text-green-900 p-1 disabled:opacity-50 ${isDarkMode ? "hover:text-green-400" : ""}`}
-                    >
-                      <KeyIcon className="w-4 h-4" />
-                    </button>
+                    {/* Reset password (manual) - First Admin only */}
+                    {isFirstAdmin && u.id !== currentUser?.id && (
+                      <button
+                        onClick={() => openResetPasswordModal(u)}
+                        disabled={saving}
+                        title="Reset password (First Admin only)"
+                        className={`text-green-600 hover:text-green-900 p-1 disabled:opacity-50 ${isDarkMode ? "hover:text-green-400" : ""}`}
+                      >
+                        <LockClosedIcon className="w-4 h-4" />
+                      </button>
+                    )}
 
-                    {/* Edit */}
-                    <button
-                      onClick={() => openEditModal(u)}
-                      disabled={saving}
-                      title="Edit"
-                      className={`text-yellow-600 hover:text-yellow-900 p-1 disabled:opacity-50 ${isDarkMode ? "hover:text-yellow-400" : ""}`}
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </button>
+                    {/* Edit - First Admin only */}
+                    {isFirstAdmin && u.id !== currentUser?.id && (
+                      <button
+                        onClick={() => openEditModal(u)}
+                        disabled={saving}
+                        title="Edit user (First Admin only)"
+                        className={`text-yellow-600 hover:text-yellow-900 p-1 disabled:opacity-50 ${isDarkMode ? "hover:text-yellow-400" : ""}`}
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                    )}
 
-                    {/* Delete (not self) */}
-                    {u.id !== currentUser?.id && currentUser?.role === "ADMIN" && (
+                    {/* Delete - First Admin only, not self */}
+                    {isFirstAdmin && u.id !== currentUser?.id && (
                       <button
                         onClick={() => handleDelete(u.id)}
                         disabled={deleting === u.id}
-                        title="Delete"
+                        title="Delete user (First Admin only)"
                         className={`text-red-600 hover:text-red-900 p-1 disabled:opacity-50 ${isDarkMode ? "hover:text-red-400" : ""}`}
                       >
                         {deleting === u.id ? (
@@ -508,6 +712,14 @@ const ClientManagement = ({ isDarkMode }) => {
                           <TrashIcon className="w-4 h-4" />
                         )}
                       </button>
+                    )}
+
+                    {/* Info icons for non-first-admin admins */}
+                    {currentUser?.role === 'ADMIN' && !isFirstAdmin && u.id !== currentUser?.id && (
+                      <div className="flex items-center space-x-1 text-gray-400" title="Only First Admin can modify users">
+                        <ExclamationIcon className="w-4 h-4" />
+                        <span className="text-xs">View Only</span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -558,14 +770,19 @@ const ClientManagement = ({ isDarkMode }) => {
         </div>
       )}
 
-      {/* Add/Edit Modal */}
+      {/* Add/Edit Modal (First Admin only) */}
       {openModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto">
           <div className={`rounded-lg shadow-xl w-full max-w-lg mx-auto my-4 ${isDarkMode ? "bg-gray-800 text-white" : "bg-white"}`}>
             <div className="flex justify-between items-center p-4 border-b border-gray-200">
-              <h2 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                {modalData.id ? "Edit User" : "Add User"}
-              </h2>
+              <div>
+                <h2 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                  {modalData.id ? "Edit User" : "Add User"}
+                </h2>
+                <p className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"} mt-1`}>
+                  First Admin Only • Password: minimum 6 characters
+                </p>
+              </div>
               <button onClick={() => setOpenModal(false)} disabled={saving} className={`text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50 ${isDarkMode ? "hover:text-gray-300" : ""}`}>
                 <XIcon className="w-5 h-5" />
               </button>
@@ -609,13 +826,18 @@ const ClientManagement = ({ isDarkMode }) => {
                     disabled={saving}
                     className={`w-full border rounded-md px-3 py-2 disabled:opacity-50 ${isDarkMode ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300 text-gray-900"}`}>
                     <option value="CLIENT">Client</option>
-                    <option value="ADMIN">Admin</option>
+                    <option value="ADMIN">Admin (cannot modify users)</option>
                   </select>
+                  <p className={`text-xs mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                    Only First Admin can manage users. Other admins have view-only access.
+                  </p>
                 </div>
 
                 {!modalData.id && (
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Password *</label>
+                    <label className={`block text-sm font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                      Password * (min. 6 characters)
+                    </label>
                     <input
                       type="password"
                       name="password"
@@ -625,6 +847,9 @@ const ClientManagement = ({ isDarkMode }) => {
                       disabled={saving}
                       className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${isDarkMode ? "bg-gray-700 border-gray-600 text-white focus:ring-blue-400" : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"}`}
                     />
+                    <p className={`text-xs mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                      Password must be at least 6 characters long.
+                    </p>
                   </div>
                 )}
               </div>
@@ -636,7 +861,7 @@ const ClientManagement = ({ isDarkMode }) => {
 
                 <button type="submit" disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center">
                   {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>}
-                  {modalData.id ? "Update" : "Create"}
+                  {modalData.id ? "Update User" : "Create User"}
                 </button>
               </div>
             </form>
@@ -644,7 +869,7 @@ const ClientManagement = ({ isDarkMode }) => {
         </div>
       )}
 
-      {/* Reset Password Modal */}
+      {/* Reset Password Modal (First Admin only) */}
       {resetPasswordModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto">
           <div className={`rounded-lg shadow-xl w-full max-w-md mx-auto my-4 ${isDarkMode ? "bg-gray-800 text-white" : "bg-white"}`}>
@@ -656,20 +881,37 @@ const ClientManagement = ({ isDarkMode }) => {
             </div>
 
             <form onSubmit={handleResetPassword} className="p-4 space-y-4">
-              <div>
+              <div className={`p-3 rounded-lg ${isDarkMode ? "bg-gray-700" : "bg-gray-100"}`}>
                 <p className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>Reset password for: <strong>{resetPasswordData.userName}</strong></p>
+                <p className={`text-xs mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>First Admin Only • Password: minimum 6 characters</p>
               </div>
 
               <div>
                 <label className={`block text-sm font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>New Password *</label>
-                <input
-                  type="password"
-                  value={resetPasswordData.newPassword}
-                  onChange={(e) => setResetPasswordData({ ...resetPasswordData, newPassword: e.target.value })}
-                  required
-                  disabled={saving}
-                  className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${isDarkMode ? "bg-gray-700 border-gray-600 text-white focus:ring-blue-400" : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"}`}
-                />
+                <div className="relative">
+                  <input
+                    type={resetPasswordData.showPassword ? "text" : "password"}
+                    value={resetPasswordData.newPassword}
+                    onChange={(e) => setResetPasswordData({ ...resetPasswordData, newPassword: e.target.value })}
+                    required
+                    disabled={saving}
+                    className={`w-full border rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${
+                      isDarkMode ? "bg-gray-700 border-gray-600 text-white focus:ring-blue-400" : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setResetPasswordData({ ...resetPasswordData, showPassword: !resetPasswordData.showPassword })}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {resetPasswordData.showPassword ? (
+                      <LockOpenIcon className="w-4 h-4" />
+                    ) : (
+                      <LockClosedIcon className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                <p className={`text-xs mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Password must be at least 6 characters long.</p>
               </div>
 
               <div>

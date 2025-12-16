@@ -242,43 +242,6 @@ function extractTokenFromRequest(req) {
   return null;
 }
 
-// --------------------------
-// SECURITY FIXES ONLY - Minimal Changes
-// --------------------------
-
-// ✅ SECURITY FIX 1: Enhanced password validation
-const validatePasswordStrength = (password) => {
-  const strongRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-  return strongRegex.test(password);
-};
-
-// ✅ SECURITY FIX 2: Simple input sanitization
-const sanitizeInput = (obj) => {
-  if (!obj || typeof obj !== 'object') return obj;
-  
-  const sanitized = {};
-  Object.keys(obj).forEach(key => {
-    if (typeof obj[key] === 'string') {
-      sanitized[key] = obj[key]
-        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-        .replace(/<[^>]*>/g, '')
-        .replace(/javascript:/gi, '')
-        .replace(/on\w+=/gi, '')
-        .trim();
-    } else {
-      sanitized[key] = obj[key];
-    }
-  });
-  return sanitized;
-};
-
-// Apply sanitization to all requests
-app.use((req, res, next) => {
-  if (req.body) req.body = sanitizeInput(req.body);
-  if (req.query) req.query = sanitizeInput(req.query);
-  next();
-});
-
 ///////////////////////////////////////////////////////////////////////////////////////////
 // --------------------------
 // Helpers: sanitize product data for non-admin roles
@@ -370,6 +333,98 @@ const generateOrderNumber = async (clientId, isDraft = false) => {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// --------------------------
+// SECURITY FIXES ONLY - Minimal Changes
+// --------------------------
+
+// ✅ SECURITY FIX 1: SIMPLIFIED password validation (6+ chars only)
+const validatePasswordStrength = (password) => {
+  if (!password || password.length < 6) {
+    console.log('Password validation failed: length < 6');
+    return false;
+  }
+  console.log('Password validation passed (6+ chars)');
+  return true;
+};
+
+// ✅ SECURITY FIX 2: Simple input sanitization
+const sanitizeInput = (obj) => {
+  if (!obj || typeof obj !== 'object') return obj;
+  
+  const sanitized = {};
+  Object.keys(obj).forEach(key => {
+    if (typeof obj[key] === 'string') {
+      sanitized[key] = obj[key]
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/javascript:/gi, '')
+        .replace(/on\w+=/gi, '')
+        .trim();
+    } else {
+      sanitized[key] = obj[key];
+    }
+  });
+  return sanitized;
+};
+
+// Apply sanitization to all requests
+app.use((req, res, next) => {
+  if (req.body) req.body = sanitizeInput(req.body);
+  if (req.query) req.query = sanitizeInput(req.query);
+  next();
+});
+
+// ======================
+// FIRST ADMIN AUTHORIZATION MIDDLEWARE
+// ======================
+
+const authorizeFirstAdmin = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    // Check if user is an admin
+    if (req.user.type !== 'PRIVATE' || req.user.role !== 'ADMIN') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    // Check if this is the FIRST ADMIN
+    const userRecord = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, createdAt: true }
+    });
+
+    if (!userRecord) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Find the oldest admin in the system
+    const firstAdmin = await prisma.user.findFirst({
+      where: { role: 'ADMIN' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true }
+    });
+
+    if (!firstAdmin) {
+      return res.status(500).json({ message: 'No admin found in system' });
+    }
+
+    // Check if current user is the first admin
+    if (userRecord.id !== firstAdmin.id) {
+      return res.status(403).json({ 
+        message: 'Only the first admin can manage users',
+        hint: 'Contact the system administrator for user management'
+      });
+    }
+
+    next();
+  } catch (err) {
+    console.error('First admin authorization error:', err);
+    return res.status(500).json({ message: 'Authorization check failed' });
+  }
+};
+
 // ---------- Authenticate middleware supporting both PRIVATE and PUBLIC users ----------
 // ✅ SECURITY FIX 3: Fixed token invalidation logic
 // ✅ UPDATED: Authenticate middleware for anonymous tokens
@@ -389,12 +444,14 @@ const authenticate = async (req, res, next) => {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
       // ✅ STRICT: Invalid token = no access
+      console.log('Token verification failed:', err.message);
       req.user = null;
       return res.status(401).json({ message: 'Invalid token' });
     }
 
     // ✅ VALIDATE: Must be an access token
     if (decoded.purpose !== 'access') {
+      console.log('Invalid token purpose:', decoded.purpose);
       req.user = null;
       return res.status(401).json({ message: 'Invalid token type' });
     }
@@ -417,8 +474,9 @@ const authenticate = async (req, res, next) => {
     }
 
     if (!user) {
+      console.log('User not found for token, uat:', decoded.uat);
       req.user = null;
-      return res.status(401).json({ message: 'User not found' });
+      return res.status(401).json({ message: 'User not found or token expired' });
     }
 
     req.user = { 
@@ -619,16 +677,17 @@ app.get('/health', (req, res) => {
 // Register first admin (one-time bootstrap)
 app.post('/api/auth/register-first-admin', [
   body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 6 }),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('name').notEmpty().trim()
 ], async (req, res) => {
   try {
-    const errors = validationResult(req); if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const errors = validationResult(req); 
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    // ✅ ADDED: Password strength validation
+    // ✅ SIMPLIFIED: Just check length (6+ characters)
     if (!validatePasswordStrength(req.body.password)) {
       return res.status(400).json({ 
-        message: 'Password must be at least 8 characters with uppercase, lowercase, number and special character' 
+        message: 'Password must be at least 6 characters long' 
       });
     }
 
@@ -642,10 +701,20 @@ app.post('/api/auth/register-first-admin', [
 
     const hashedPassword = await bcrypt.hash(req.body.password, 12);
     const user = await prisma.user.create({
-      data: { email: req.body.email, password: hashedPassword, name: req.body.name, company: req.body.company || 'Company', role: 'ADMIN' }
+      data: { 
+        email: req.body.email, 
+        password: hashedPassword, 
+        name: req.body.name, 
+        company: req.body.company || 'Company', 
+        role: 'ADMIN' 
+      }
     });
 
-    // Issue tokens (do NOT return tokens in body)
+    // Store first admin ID for future reference
+    console.log(`✅ First admin created with ID: ${user.id}`);
+    console.log(`ℹ️  Tip: Set FIRST_ADMIN_ID=${user.id} in Railway environment variables for strict first-admin checks`);
+
+    // Issue tokens
     const access = signAccessToken(user, 'PRIVATE');
     const refresh = signRefreshToken(user, 'PRIVATE');
     const socketToken = signSocketToken(user, 'PRIVATE');
@@ -656,7 +725,13 @@ app.post('/api/auth/register-first-admin', [
     res.cookie('socket_token', socketToken, SOCKET_COOKIE_OPTIONS);
 
     // Return only user info
-    res.status(201).json({ id: user.id, email: user.email, name: user.name, company: user.company, role: user.role });
+    res.status(201).json({ 
+      id: user.id, 
+      email: user.email, 
+      name: user.name, 
+      company: user.company, 
+      role: user.role 
+    });
   } catch (err) {
     console.error('Admin registration error:', err);
     res.status(500).json({ message: 'Server error' });
@@ -666,17 +741,18 @@ app.post('/api/auth/register-first-admin', [
 // Register user (Admin only creates private users)
 app.post('/api/auth/register', authenticate, authorizeAdmin, [
   body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 6 }),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('name').notEmpty().trim(),
   body('role').isIn(['ADMIN','CLIENT'])
 ], async (req, res) => {
   try {
-    const errors = validationResult(req); if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const errors = validationResult(req); 
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    // ✅ ADDED: Password strength validation
+    // ✅ SIMPLIFIED: Just check length (6+ characters)
     if (!validatePasswordStrength(req.body.password)) {
       return res.status(400).json({ 
-        message: 'Password must be at least 8 characters with uppercase, lowercase, number and special character' 
+        message: 'Password must be at least 6 characters long' 
       });
     }
 
@@ -685,19 +761,33 @@ app.post('/api/auth/register', authenticate, authorizeAdmin, [
 
     const hashedPassword = await bcrypt.hash(req.body.password, 12);
     const newUser = await prisma.user.create({
-      data: { email: req.body.email, password: hashedPassword, name: req.body.name, company: req.body.company || 'Client', role: req.body.role }
+      data: { 
+        email: req.body.email, 
+        password: hashedPassword, 
+        name: req.body.name, 
+        company: req.body.company || 'Client', 
+        role: req.body.role 
+      }
     });
 
-    // Issue tokens and socket token for convenience (admin-created user will be logged in if desired)
-    const access = signAccessToken(newUser, 'PRIVATE');
-    const refresh = signRefreshToken(newUser, 'PRIVATE');
-    const socketToken = signSocketToken(newUser, 'PRIVATE');
+    // For admin-created users, optionally log them in
+    if (req.query.autoLogin === 'true') {
+      const access = signAccessToken(newUser, 'PRIVATE');
+      const refresh = signRefreshToken(newUser, 'PRIVATE');
+      const socketToken = signSocketToken(newUser, 'PRIVATE');
 
-    res.cookie('token', access, COOKIE_OPTIONS);
-    res.cookie('refreshToken', refresh, REFRESH_COOKIE_OPTIONS);
-    res.cookie('socket_token', socketToken, SOCKET_COOKIE_OPTIONS);
+      res.cookie('token', access, COOKIE_OPTIONS);
+      res.cookie('refreshToken', refresh, REFRESH_COOKIE_OPTIONS);
+      res.cookie('socket_token', socketToken, SOCKET_COOKIE_OPTIONS);
+    }
 
-    res.status(201).json({ id: newUser.id, email: newUser.email, name: newUser.name, company: newUser.company, role: newUser.role });
+    res.status(201).json({ 
+      id: newUser.id, 
+      email: newUser.email, 
+      name: newUser.name, 
+      company: newUser.company, 
+      role: newUser.role 
+    });
   } catch (err) {
     console.error('User registration error:', err);
     res.status(500).json({ message: 'Server error' });
@@ -710,7 +800,8 @@ app.post('/api/auth/login', [
   body('password').isLength({ min: 1 })
 ], async (req, res) => {
   try {
-    const errors = validationResult(req); if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const errors = validationResult(req); 
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     const user = await prisma.user.findUnique({ where: { email: req.body.email } });
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
@@ -727,7 +818,13 @@ app.post('/api/auth/login', [
     res.cookie('socket_token', socketToken, SOCKET_COOKIE_OPTIONS);
 
     // Return user info only
-    res.json({ id: user.id, email: user.email, name: user.name, company: user.company, role: user.role });
+    res.json({ 
+      id: user.id, 
+      email: user.email, 
+      name: user.name, 
+      company: user.company, 
+      role: user.role 
+    });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ message: 'Server error' });
@@ -806,16 +903,17 @@ app.get('/api/auth/user', authenticate, async (req, res) => {
 // Public (open) register/login (no socket token issued by default)
 app.post('/api/public/register', [
   body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 6 }),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('name').optional().trim()
 ], async (req, res) => {
   try {
-    const errors = validationResult(req); if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const errors = validationResult(req); 
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    // ✅ ADDED: Password strength validation
+    // ✅ SIMPLIFIED: Just check length (6+ characters)
     if (!validatePasswordStrength(req.body.password)) {
       return res.status(400).json({ 
-        message: 'Password must be at least 8 characters with uppercase, lowercase, number and special character' 
+        message: 'Password must be at least 6 characters long' 
       });
     }
 
@@ -823,16 +921,25 @@ app.post('/api/public/register', [
     if (existing) return res.status(400).json({ message: 'Email already registered' });
 
     const hashed = await bcrypt.hash(req.body.password, 12);
-    const pu = await prisma.publicUser.create({ data: { email: req.body.email, password: hashed, name: req.body.name } });
+    const pu = await prisma.publicUser.create({ 
+      data: { 
+        email: req.body.email, 
+        password: hashed, 
+        name: req.body.name 
+      } 
+    });
 
     const access = signAccessToken(pu, 'PUBLIC');
     const refresh = signRefreshToken(pu, 'PUBLIC');
 
-    // only set access + refresh cookies — no socket_token for public users (Option A)
     res.cookie('token', access, COOKIE_OPTIONS);
     res.cookie('refreshToken', refresh, REFRESH_COOKIE_OPTIONS);
 
-    res.status(201).json({ id: pu.id, email: pu.email, name: pu.name });
+    res.status(201).json({ 
+      id: pu.id, 
+      email: pu.email, 
+      name: pu.name 
+    });
   } catch (err) {
     console.error('Public register error', err);
     res.status(500).json({ message: 'Server error' });
@@ -844,7 +951,8 @@ app.post('/api/public/login', [
   body('password').isLength({ min: 1 })
 ], async (req, res) => {
   try {
-    const errors = validationResult(req); if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const errors = validationResult(req); 
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     const pu = await prisma.publicUser.findUnique({ where: { email: req.body.email } });
     if (!pu) return res.status(400).json({ message: 'Invalid credentials' });
@@ -858,7 +966,11 @@ app.post('/api/public/login', [
     res.cookie('token', access, COOKIE_OPTIONS);
     res.cookie('refreshToken', refresh, REFRESH_COOKIE_OPTIONS);
 
-    res.json({ id: pu.id, email: pu.email, name: pu.name });
+    res.json({ 
+      id: pu.id, 
+      email: pu.email, 
+      name: pu.name 
+    });
   } catch (err) {
     console.error('Public login error', err);
     res.status(500).json({ message: 'Server error' });
@@ -910,10 +1022,10 @@ app.post('/api/auth/refresh', async (req, res) => {
 });
 
 // ---------------
-// CLIENT MANAGEMENT ROUTES (NEW - for your frontend)
+// CLIENT MANAGEMENT ROUTES (FIRST ADMIN ONLY)
 // ---------------
 
-// Get all clients (admin only)
+// Get all clients (show to all admins)
 app.get('/api/clients', authenticate, authorizeAdmin, async (req, res) => {
   try {
     const clients = await prisma.user.findMany({
@@ -942,14 +1054,18 @@ app.get('/api/clients', authenticate, authorizeAdmin, async (req, res) => {
   }
 });
 
-// Update client
-app.put('/api/clients/:id', authenticate, authorizeAdmin, [
+// Update client (FIRST ADMIN only)
+app.put('/api/clients/:id', authenticate, authorizeFirstAdmin, [
   body('email').isEmail().normalizeEmail(),
   body('name').notEmpty().trim()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ 
+        message: errors.array()[0].msg || 'Validation failed' 
+      });
+    }
 
     const { email, name, company, address, tel, gps, role } = req.body;
 
@@ -975,7 +1091,7 @@ app.put('/api/clients/:id', authenticate, authorizeAdmin, [
         tel,
         gps,
         ...(role && { role }),
-        updatedAt: new Date() // This will invalidate all existing tokens
+        updatedAt: new Date()
       },
       select: {
         id: true,
@@ -995,14 +1111,14 @@ app.put('/api/clients/:id', authenticate, authorizeAdmin, [
   } catch (err) {
     console.error('Update client error:', err);
     if (err.code === 'P2025') {
-      return res.status(404).json({ message: 'Client not found' });
+      return res.status(404).json({ message: 'User not found' });
     }
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Delete client
-app.delete('/api/clients/:id', authenticate, authorizeAdmin, async (req, res) => {
+// Delete client (FIRST ADMIN only)
+app.delete('/api/clients/:id', authenticate, authorizeFirstAdmin, async (req, res) => {
   try {
     // Prevent self-deletion
     if (req.params.id === req.user.id) {
@@ -1013,28 +1129,25 @@ app.delete('/api/clients/:id', authenticate, authorizeAdmin, async (req, res) =>
       where: { id: req.params.id }
     });
 
-    res.json({ message: 'Client deleted successfully' });
+    res.json({ message: 'User deleted successfully' });
   } catch (err) {
     console.error('Delete client error:', err);
     if (err.code === 'P2025') {
-      return res.status(404).json({ message: 'Client not found' });
+      return res.status(404).json({ message: 'User not found' });
     }
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Reset password
-app.post('/api/users/:id/reset-password', authenticate, authorizeAdmin, [
-  body('newPassword').isLength({ min: 6 })
+// Reset password (FIRST ADMIN only)
+app.post('/api/users/:id/reset-password', authenticate, authorizeFirstAdmin, [
+  body('newPassword').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-
-    // Enhanced password validation
-    if (!validatePasswordStrength(req.body.newPassword)) {
+    if (!errors.isEmpty()) {
       return res.status(400).json({ 
-        message: 'Password must be at least 8 characters with uppercase, lowercase, number and special character' 
+        message: errors.array()[0].msg || 'Validation failed'
       });
     }
 
@@ -1044,11 +1157,14 @@ app.post('/api/users/:id/reset-password', authenticate, authorizeAdmin, [
       where: { id: req.params.id },
       data: {
         password: hashedPassword,
-        updatedAt: new Date() // This will invalidate all existing tokens
+        updatedAt: new Date()
       }
     });
 
-    res.json({ message: 'Password reset successfully' });
+    res.json({ 
+      message: 'Password reset successfully',
+      note: 'User will need to use this new password to log in'
+    });
   } catch (err) {
     console.error('Reset password error:', err);
     if (err.code === 'P2025') {
