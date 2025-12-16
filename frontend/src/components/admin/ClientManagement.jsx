@@ -61,65 +61,70 @@ const ClientManagement = ({ isDarkMode }) => {
   // Helper: base API (relative so Vite proxy or same origin works)
   const apiBase = "";
 
- // Check if current user is first admin - FIXED VERSION
-const checkFirstAdminStatus = async () => {
-  if (!currentUser || currentUser.role !== 'ADMIN') {
-    setIsFirstAdmin(false);
+  // Check if current user is first admin - FIXED VERSION
+  const checkFirstAdminStatus = async () => {
+    if (!currentUser || currentUser.role !== 'ADMIN' || users.length === 0) {
+      setIsFirstAdmin(false);
       return;
     }
 
-    // OPTION A: Check without making API call (recommended)
-    // Find the oldest admin in the users list
-    if (users.length > 0) {
-      // Get all admin users and sort by creation date
-      const adminUsers = users
-        .filter(u => u.role === 'ADMIN')
-        .sort((a, b) => {
-          const dateA = new Date(a.createdAt);
-          const dateB = new Date(b.createdAt);
-          return dateA - dateB;
-        });
-
-      if (adminUsers.length > 0) {
-        // First admin is the oldest admin
-        const firstAdmin = adminUsers[0];
-        setIsFirstAdmin(currentUser.id === firstAdmin.id);
-        console.log(`First admin check: ${currentUser.id === firstAdmin.id ? 'User IS first admin' : 'User is NOT first admin'}`);
-        return; // Skip the API call check
-      }
-    }
-
-    // OPTION B: Alternative method - Make a simpler API call
-    // Only use this if you can't determine from users list
     try {
-      // Instead of trying to update a user, try a simpler check
-      // Check if we can access first-admin-only endpoint
-      const testUser = users.find(u => u.id !== currentUser.id && u.role === 'CLIENT');
-      if (testUser) {
-        // Try a GET request instead of PUT (less invasive)
-        await axios.get(`${apiBase}/api/clients/${testUser.id}`, {
-          withCredentials: true,
-          timeout: 3000
-        }).catch(() => {
-          // If we get a 403 on GET too, we're likely not first admin
-          // but GET should work for all admins, so this is just a fallback
-        });
-
-        // Alternative: Check by trying to delete (but don't actually delete)
-        // This would require a separate endpoint on backend
+      // Get all admin users
+      const adminUsers = users.filter(u => u.role === 'ADMIN');
+      
+      if (adminUsers.length === 0) {
+        setIsFirstAdmin(false);
+        return;
       }
 
-      // Since we can't reliably determine from client-side,
-      // we'll assume not first admin for safety
-      setIsFirstAdmin(false);
+      // Sort by ORIGINAL createdAt timestamp from database
+      const sortedAdmins = [...adminUsers].sort((a, b) => {
+        // Parse PostgreSQL timestamp format: "2025-08-23 00:49:03.65"
+        const parseTimestamp = (timestamp) => {
+          if (!timestamp) return 0;
+          try {
+            // Convert PostgreSQL timestamp to ISO format for Date parsing
+            const isoFormat = timestamp.includes('T') 
+              ? timestamp 
+              : timestamp.replace(' ', 'T');
+            const date = new Date(isoFormat);
+            return isNaN(date.getTime()) ? 0 : date.getTime();
+          } catch {
+            return 0;
+          }
+        };
 
+        const timeA = parseTimestamp(a.createdAt);
+        const timeB = parseTimestamp(b.createdAt);
+        
+        // If timestamps are equal, use ID as fallback (lower ID = older)
+        if (timeA === timeB) {
+          return a.id - b.id;
+        }
+        
+        return timeA - timeB; // Oldest first
+      });
+
+      // The first admin is the oldest admin
+      const firstAdmin = sortedAdmins[0];
+      
+      console.log('First admin check:', {
+        firstAdminId: firstAdmin.id,
+        firstAdminName: firstAdmin.name,
+        firstAdminDate: firstAdmin.createdAt,
+        currentUserId: currentUser.id,
+        isFirstAdmin: currentUser.id === firstAdmin.id
+      });
+      
+      setIsFirstAdmin(currentUser.id === firstAdmin.id);
+      
     } catch (err) {
-      console.log('First admin check error:', err.message);
+      console.error('Error checking first admin status:', err);
       setIsFirstAdmin(false);
     }
   };
 
-  // Fetch all users
+  // Fetch all users - FIXED: Handle PostgreSQL timestamp
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -130,18 +135,38 @@ const checkFirstAdminStatus = async () => {
         timeout: 10000,
       });
 
-      const formatted = (res.data || []).map((u) => ({
-        ...u,
-        address: u.address || "-",
-        tel: u.tel || "-",
-        gps: u.gps || "-",
-        createdAt:
-          u.createdAt && !isNaN(new Date(u.createdAt))
-            ? new Date(u.createdAt).toLocaleDateString()
-            : u.createdAt || "-",
-        // Add raw date for sorting
-        createdAtRaw: u.createdAt ? new Date(u.createdAt) : new Date()
-      }));
+      const formatted = (res.data || []).map((u) => {
+        // Keep original timestamp for sorting
+        const originalTimestamp = u.createdAt; // "2025-08-23 00:49:03.65"
+        
+        // Create display date
+        let displayDate = "-";
+        if (originalTimestamp) {
+          try {
+            // Convert PostgreSQL timestamp to readable date
+            const isoFormat = originalTimestamp.includes('T') 
+              ? originalTimestamp 
+              : originalTimestamp.replace(' ', 'T');
+            const date = new Date(isoFormat);
+            if (!isNaN(date.getTime())) {
+              displayDate = date.toLocaleDateString();
+            }
+          } catch (e) {
+            console.warn('Date parsing error:', e.message);
+          }
+        }
+        
+        return {
+          ...u,
+          address: u.address || "-",
+          tel: u.tel || "-",
+          gps: u.gps || "-",
+          // Keep original timestamp for sorting
+          createdAt: originalTimestamp,
+          // Add formatted date for display
+          createdAtDisplay: displayDate,
+        };
+      });
 
       setUsers(formatted);
     } catch (err) {
@@ -160,13 +185,10 @@ const checkFirstAdminStatus = async () => {
     fetchUsers();
   }, []);
 
-  // Check first admin status when users load - UPDATED
+  // Check first admin status when users load
   useEffect(() => {
     if (users.length > 0 && currentUser?.role === 'ADMIN') {
-      // Use a small delay to ensure state is updated
-      setTimeout(() => {
-        checkFirstAdminStatus();
-      }, 100);
+      checkFirstAdminStatus();
     } else if (currentUser?.role !== 'ADMIN') {
       setIsFirstAdmin(false);
     }
@@ -513,7 +535,7 @@ const checkFirstAdminStatus = async () => {
           u.tel || "",
           u.gps || "",
           u.role || "",
-          u.createdAt || "",
+          u.createdAtDisplay || u.createdAt || "",
         ]),
       ];
 
@@ -774,7 +796,8 @@ const checkFirstAdminStatus = async () => {
                       </a>
                     </div>
                     <div className={`mt-1 sm:mt-0 ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                      <strong>Created:</strong> {u.createdAt}
+                      {/* FIXED: Use createdAtDisplay for display */}
+                      <strong>Created:</strong> {u.createdAtDisplay || "-"}
                     </div>
                   </div>
 
