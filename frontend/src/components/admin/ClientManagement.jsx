@@ -61,39 +61,60 @@ const ClientManagement = ({ isDarkMode }) => {
   // Helper: base API (relative so Vite proxy or same origin works)
   const apiBase = "";
 
-  // Check if current user is first admin
-  const checkFirstAdminStatus = async () => {
-    if (!currentUser || currentUser.role !== 'ADMIN') {
-      setIsFirstAdmin(false);
+ // Check if current user is first admin - FIXED VERSION
+const checkFirstAdminStatus = async () => {
+  if (!currentUser || currentUser.role !== 'ADMIN') {
+    setIsFirstAdmin(false);
       return;
     }
 
-    try {
-      // Try to perform a first-admin-only action to check permissions
-      const testUser = users.find(u => u.id !== currentUser.id);
-      if (testUser) {
-        // Try to update a user (will fail if not first admin)
-        try {
-          await axios.put(`${apiBase}/api/clients/${testUser.id}`, {
-            name: testUser.name,
-            email: testUser.email
-          }, {
-            withCredentials: true,
-            timeout: 5000 // Short timeout for check
-          });
-          setIsFirstAdmin(true);
-        } catch (err) {
-          if (err.response?.status === 403 && 
-              err.response?.data?.message?.includes('first admin')) {
-            setIsFirstAdmin(false);
-          } else {
-            // Other error, assume not first admin
-            setIsFirstAdmin(false);
-          }
-        }
+    // OPTION A: Check without making API call (recommended)
+    // Find the oldest admin in the users list
+    if (users.length > 0) {
+      // Get all admin users and sort by creation date
+      const adminUsers = users
+        .filter(u => u.role === 'ADMIN')
+        .sort((a, b) => {
+          const dateA = new Date(a.createdAt);
+          const dateB = new Date(b.createdAt);
+          return dateA - dateB;
+        });
+
+      if (adminUsers.length > 0) {
+        // First admin is the oldest admin
+        const firstAdmin = adminUsers[0];
+        setIsFirstAdmin(currentUser.id === firstAdmin.id);
+        console.log(`First admin check: ${currentUser.id === firstAdmin.id ? 'User IS first admin' : 'User is NOT first admin'}`);
+        return; // Skip the API call check
       }
+    }
+
+    // OPTION B: Alternative method - Make a simpler API call
+    // Only use this if you can't determine from users list
+    try {
+      // Instead of trying to update a user, try a simpler check
+      // Check if we can access first-admin-only endpoint
+      const testUser = users.find(u => u.id !== currentUser.id && u.role === 'CLIENT');
+      if (testUser) {
+        // Try a GET request instead of PUT (less invasive)
+        await axios.get(`${apiBase}/api/clients/${testUser.id}`, {
+          withCredentials: true,
+          timeout: 3000
+        }).catch(() => {
+          // If we get a 403 on GET too, we're likely not first admin
+          // but GET should work for all admins, so this is just a fallback
+        });
+
+        // Alternative: Check by trying to delete (but don't actually delete)
+        // This would require a separate endpoint on backend
+      }
+
+      // Since we can't reliably determine from client-side,
+      // we'll assume not first admin for safety
+      setIsFirstAdmin(false);
+
     } catch (err) {
-      console.log('First admin check inconclusive:', err.message);
+      console.log('First admin check error:', err.message);
       setIsFirstAdmin(false);
     }
   };
@@ -118,6 +139,8 @@ const ClientManagement = ({ isDarkMode }) => {
           u.createdAt && !isNaN(new Date(u.createdAt))
             ? new Date(u.createdAt).toLocaleDateString()
             : u.createdAt || "-",
+        // Add raw date for sorting
+        createdAtRaw: u.createdAt ? new Date(u.createdAt) : new Date()
       }));
 
       setUsers(formatted);
@@ -125,7 +148,7 @@ const ClientManagement = ({ isDarkMode }) => {
       console.error("Failed to fetch users:", err);
       setError(
         err?.response?.data?.message ||
-          "Failed to load users. Please check your connection."
+        "Failed to load users. Please check your connection."
       );
       setUsers([]);
     } finally {
@@ -137,10 +160,15 @@ const ClientManagement = ({ isDarkMode }) => {
     fetchUsers();
   }, []);
 
-  // Check first admin status when users load
+  // Check first admin status when users load - UPDATED
   useEffect(() => {
     if (users.length > 0 && currentUser?.role === 'ADMIN') {
-      checkFirstAdminStatus();
+      // Use a small delay to ensure state is updated
+      setTimeout(() => {
+        checkFirstAdminStatus();
+      }, 100);
+    } else if (currentUser?.role !== 'ADMIN') {
+      setIsFirstAdmin(false);
     }
   }, [users, currentUser]);
 
