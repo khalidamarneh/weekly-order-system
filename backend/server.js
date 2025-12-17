@@ -1104,6 +1104,17 @@ app.put('/api/clients/:id', authenticate, authorizeFirstAdmin, [
   console.log(`🔧 PUT /api/clients/${req.params.id} - Request by: ${req.user?.id}`);
   
   try {
+    // ✅ FIX: Convert string ID to integer
+    const userId = parseInt(req.params.id);
+    
+    if (isNaN(userId)) {
+      console.log(`❌ Invalid user ID: ${req.params.id}`);
+      return res.status(400).json({ 
+        message: 'Invalid user ID format',
+        userId: req.params.id
+      });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.log('❌ Validation errors:', errors.array());
@@ -1115,7 +1126,7 @@ app.put('/api/clients/:id', authenticate, authorizeFirstAdmin, [
 
     const { email, name, company, address, tel, gps, role } = req.body;
     
-    console.log(`📝 Updating user ${req.params.id} with:`, { 
+    console.log(`📝 Updating user ${userId} with:`, { 
       email, name, company, address, tel, gps, role 
     });
 
@@ -1123,7 +1134,7 @@ app.put('/api/clients/:id', authenticate, authorizeFirstAdmin, [
     const existingUser = await prisma.user.findFirst({
       where: {
         email: email,
-        id: { not: req.params.id }
+        id: { not: userId } // ✅ Now using integer
       }
     });
 
@@ -1136,7 +1147,7 @@ app.put('/api/clients/:id', authenticate, authorizeFirstAdmin, [
     }
 
     const updatedUser = await prisma.user.update({
-      where: { id: req.params.id },
+      where: { id: userId }, // ✅ Now using integer
       data: {
         email,
         name,
@@ -1161,7 +1172,7 @@ app.put('/api/clients/:id', authenticate, authorizeFirstAdmin, [
       }
     });
 
-    console.log(`✅ User ${req.params.id} updated successfully`);
+    console.log(`✅ User ${userId} updated successfully`);
     res.json(updatedUser);
   } catch (err) {
     console.error('❌ Update client error:', {
@@ -1199,8 +1210,19 @@ app.delete('/api/clients/:id', authenticate, authorizeFirstAdmin, async (req, re
   console.log(`🗑️ DELETE /api/clients/${req.params.id} - Request by: ${req.user?.id}`);
   
   try {
+    // ✅ FIX: Convert string ID to integer
+    const userId = parseInt(req.params.id);
+    
+    if (isNaN(userId)) {
+      console.log(`❌ Invalid user ID: ${req.params.id}`);
+      return res.status(400).json({ 
+        message: 'Invalid user ID format',
+        userId: req.params.id
+      });
+    }
+
     // Prevent self-deletion
-    if (req.params.id === req.user.id) {
+    if (userId === req.user.id) {
       console.log(`❌ User ${req.user.id} attempted to delete themselves`);
       return res.status(400).json({ 
         message: 'You cannot delete your own account',
@@ -1210,25 +1232,25 @@ app.delete('/api/clients/:id', authenticate, authorizeFirstAdmin, async (req, re
 
     // Check if user exists before deleting
     const userToDelete = await prisma.user.findUnique({
-      where: { id: req.params.id },
+      where: { id: userId }, // ✅ Now using integer
       select: { id: true, email: true, role: true, createdAt: true }
     });
 
     if (!userToDelete) {
-      console.log(`❌ User ${req.params.id} not found for deletion`);
+      console.log(`❌ User ${userId} not found for deletion`);
       return res.status(404).json({ 
         message: 'User not found',
-        userId: req.params.id
+        userId: userId
       });
     }
 
     console.log(`🗑️ Attempting to delete user:`, userToDelete);
 
     await prisma.user.delete({
-      where: { id: req.params.id }
+      where: { id: userId } // ✅ Now using integer
     });
 
-    console.log(`✅ User ${req.params.id} deleted successfully`);
+    console.log(`✅ User ${userId} deleted successfully`);
     res.json({ 
       message: 'User deleted successfully',
       deletedUser: { id: userToDelete.id, email: userToDelete.email }
@@ -1272,6 +1294,17 @@ app.post('/api/users/:id/reset-password', authenticate, authorizeFirstAdmin, [
   console.log(`🔐 POST /api/users/${req.params.id}/reset-password - Request by: ${req.user?.id}`);
   
   try {
+    // ✅ FIX: Convert string ID to integer
+    const userId = parseInt(req.params.id);
+    
+    if (isNaN(userId)) {
+      console.log(`❌ Invalid user ID: ${req.params.id}`);
+      return res.status(400).json({ 
+        message: 'Invalid user ID format',
+        userId: req.params.id
+      });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.log('❌ Password validation errors:', errors.array());
@@ -1284,14 +1317,14 @@ app.post('/api/users/:id/reset-password', authenticate, authorizeFirstAdmin, [
     const hashedPassword = await bcrypt.hash(req.body.newPassword, 12);
 
     await prisma.user.update({
-      where: { id: req.params.id },
+      where: { id: userId }, // ✅ Now using integer
       data: {
         password: hashedPassword,
         updatedAt: new Date()
       }
     });
 
-    console.log(`✅ Password reset for user ${req.params.id}`);
+    console.log(`✅ Password reset for user ${userId}`);
     res.json({ 
       message: 'Password reset successfully',
       note: 'User will need to use this new password to log in'
