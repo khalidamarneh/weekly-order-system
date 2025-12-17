@@ -37,12 +37,12 @@ const SHIPMENT_STATUS_OPTIONS = ['PENDING', 'PACKED', 'SHIPPED', 'IN_TRANSIT', '
 const PAYMENT_METHODS = ['CASH', 'CREDIT_CARD', 'BANK_TRANSFER', 'CHECK', 'DIGITAL_WALLET', 'OTHER'];
 
 // FIXED: Stable Generic Dropdown Component
-const GenericDropdown = React.memo(({ 
-    label, 
-    current, 
-    options = [], 
+const GenericDropdown = React.memo(({
+    label,
+    current,
+    options = [],
     onChange,
-    isDarkMode = false 
+    isDarkMode = false
 }) => {
     const [open, setOpen] = useState(false);
     const ref = useRef(null);
@@ -56,9 +56,9 @@ const GenericDropdown = React.memo(({
     }, []);
 
     return (
-        <div ref={ref} className="relative">
+        <div ref={ref} className="relative w-full">
             {label && (
-                <label className="block text-xs mb-1 text-gray-600 dark:text-gray-300">
+                <label className="block text-xs mb-1 text-gray-600 dark:text-gray-300 font-medium">
                     {label}
                 </label>
             )}
@@ -68,21 +68,21 @@ const GenericDropdown = React.memo(({
                     e.stopPropagation();
                     setOpen((o) => !o);
                 }}
-                className={`w-full flex justify-between items-center px-3 py-2 rounded-lg border text-sm ${
-                    isDarkMode 
-                        ? 'bg-gray-800 border-gray-700 text-white' 
-                        : 'bg-gray-100 border-gray-300 text-gray-900'
-                }`}
+                className={`w-full flex justify-between items-center px-4 py-3 sm:px-3 sm:py-2 rounded-lg border text-sm transition-all duration-200 active:scale-[0.98] ${isDarkMode
+                        ? 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700'
+                        : 'bg-gray-100 border-gray-300 text-gray-900 hover:bg-gray-200'
+                    }`}
+                aria-expanded={open}
+                aria-haspopup="listbox"
             >
-                <span>{current}</span>
-                <ChevronDownIcon className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+                <span className="truncate">{current}</span>
+                <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
             </button>
 
             {open && (
-                <div className={`absolute right-0 mt-1 w-full rounded-lg shadow-lg border z-50 ${
-                    isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-                }`}>
-                    <div className="py-1 max-h-56 overflow-auto">
+                <div className={`absolute left-0 right-0 mt-1 rounded-lg shadow-lg border z-50 max-h-60 overflow-y-auto ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                    }`}>
+                    <div className="py-1">
                         {options.map((opt) => (
                             <button
                                 key={opt}
@@ -90,13 +90,17 @@ const GenericDropdown = React.memo(({
                                     onChange(opt);
                                     setOpen(false);
                                 }}
-                                className={`w-full text-left px-4 py-2 text-sm ${
-                                    opt === current
-                                        ? "bg-blue-100 dark:bg-blue-900/50"
-                                        : "hover:bg-gray-100 dark:hover:bg-gray-700"
-                                }`}
+                                className={`w-full text-left px-4 py-3 sm:py-2 text-sm transition-colors duration-150 ${opt === current
+                                        ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-medium"
+                                        : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                    }`}
+                                role="option"
+                                aria-selected={opt === current}
                             >
-                                {opt}
+                                <div className="flex items-center gap-2">
+                                    {opt === current && <CheckIcon className="h-4 w-4 text-blue-500" />}
+                                    <span>{opt}</span>
+                                </div>
                             </button>
                         ))}
                     </div>
@@ -1424,7 +1428,7 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                     <h2 className="font-semibold mb-3">First Import Products To The DB</h2>
                     <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
                         <div className="flex-1 w-full">
-                            <CsvManagement 
+                            <CsvManagement
                                 onProductsImported={() => console.log('Products imported')}
                                 isDarkMode={isDarkMode}
                             />
@@ -1457,7 +1461,7 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                             >
                                 Display CSV
                             </button>
-                            <button 
+                            <button
                                 onClick={calculateAndDisplayCsvTotal}
                                 disabled={allProducts.length === 0}
                                 className={buttonClass('green', 'sm')}
@@ -1467,81 +1471,128 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                         </div>
                     </div>
                     {fileStatus.message && (
-                        <div className={`p-2 rounded text-sm ${
-                            fileStatus.type === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
-                            fileStatus.type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
-                            'bg-blue-100 text-blue-800 border border-blue-200'
-                        } ${isDarkMode ? '!bg-opacity-20' : ''}`}>
+                        <div className={`p-2 rounded text-sm ${fileStatus.type === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
+                                fileStatus.type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+                                    'bg-blue-100 text-blue-800 border border-blue-200'
+                            } ${isDarkMode ? '!bg-opacity-20' : ''}`}>
                             {fileStatus.message}
                         </div>
                     )}
                 </div>
+                {/* Search Section - Mobile Optimized */}
+                <div className={`p-3 sm:p-4 invoice-mobile-card ${cardClass}`}>
+                    <h2 className="font-semibold mb-3 text-base sm:text-lg">Search Products</h2>
 
-                {/* Search Section */}
-                <div className={`p-4 ${cardClass}`}>
-                    <h2 className="font-semibold mb-3">Search Products</h2>
-                    <div className="flex gap-2 flex-wrap mb-3">
-                        <input
-                            ref={searchInputRef}
-                            type="text"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Search by part number or description..."
-                            className={`${inputClass} flex-1`}
-                        />
-                        <button 
-                            onClick={openBarcodeScanner}
-                            className={buttonClass('yellow', 'sm')}
-                        >
-                            <CameraIcon className="h-4 w-4" />
-                            Scan
-                        </button>
-                        <button 
-                            onClick={() => performSearch()}
-                            className={buttonClass('blue', 'sm')}
-                        >
-                            <SearchIcon className="h-4 w-4" />
-                            Search
-                        </button>
-                        <button 
+                    {/* Mobile-optimized search input with action buttons */}
+                    <div className="flex flex-col xs:flex-row gap-2 mb-3">
+                        {/* Search input with integrated search button for mobile */}
+                        <div className="relative flex-1 search-input-320">
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="Search part no or description..."
+                                className={`w-full px-3 py-3 sm:py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 invoice-mobile-input ${isDarkMode
+                                        ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400'
+                                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                                    }`}
+                                onKeyPress={(e) => e.key === 'Enter' && performSearch()}
+                            />
+                            {/* Mobile search button inside input */}
+                            <button
+                                onClick={() => performSearch()}
+                                className="absolute right-2 top-1/2 transform -translate-y-1/2 sm:hidden p-1.5 rounded-md bg-blue-500 hover:bg-blue-600 text-white"
+                                aria-label="Search"
+                            >
+                                <SearchIcon className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        {/* Action buttons - mobile optimized layout */}
+                        <div className="flex flex-wrap gap-2 gap-xs-1">
+                            {/* Scan button - full width on very small screens */}
+                            <button
+                                onClick={openBarcodeScanner}
+                                className="flex-1 xs:flex-none flex items-center justify-center gap-1 px-3 py-3 sm:px-3 sm:py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg text-sm font-medium whitespace-nowrap min-w-[70px] button-responsive"
+                                title="Scan barcode"
+                            >
+                                <CameraIcon className="h-4 w-4" />
+                                <span className="hidden xs:inline">Scan</span>
+                            </button>
+
+                            {/* Desktop search button - hidden on mobile */}
+                            <button
+                                onClick={() => performSearch()}
+                                className="hidden sm:flex items-center justify-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium whitespace-nowrap"
+                            >
+                                <SearchIcon className="h-4 w-4" />
+                                <span>Search</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Secondary action buttons - row for mobile */}
+                    <div className="flex flex-wrap gap-2 mb-3">
+                        <button
                             onClick={displayAllProducts}
                             disabled={allProducts.length === 0}
-                            className={buttonClass('green', 'sm')}
+                            className={`flex-1 xs:flex-none flex items-center justify-center px-3 py-3 sm:px-3 sm:py-2 text-sm font-medium rounded-lg whitespace-nowrap invoice-mobile-button ${allProducts.length === 0
+                                    ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                    : 'bg-green-600 hover:bg-green-700 text-white'
+                                }`}
                         >
                             Display All
                         </button>
-                        <button 
+
+                        <button
                             onClick={resetSearch}
-                            className={buttonClass('gray', 'sm')}
+                            className="flex-1 xs:flex-none flex items-center justify-center gap-1 px-3 py-3 sm:px-3 sm:py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium whitespace-nowrap invoice-mobile-button"
                         >
                             <RefreshIcon className="h-4 w-4" />
-                            Reset
+                            <span className="hidden xs:inline">Reset</span>
                         </button>
                     </div>
+
+                    {/* Status message with better mobile styling */}
                     {searchStatus.message && (
-                        <div className={`p-2 rounded text-sm mb-3 ${
-                            searchStatus.type === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
-                            searchStatus.type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
-                            'bg-blue-100 text-blue-800 border border-blue-200'
-                        } ${isDarkMode ? '!bg-opacity-20' : ''}`}>
-                            {searchStatus.message}
+                        <div className={`p-3 rounded-lg text-sm mb-3 ${searchStatus.type === 'error' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800' :
+                                searchStatus.type === 'success' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800' :
+                                    'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                            }`}>
+                            <div className="flex items-start">
+                                <span className="flex-1 break-words">{searchStatus.message}</span>
+                                <button
+                                    onClick={() => setSearchStatus({ message: '', type: '' })}
+                                    className="ml-2 text-xs px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 btn-xs-tiny"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
                         </div>
                     )}
-                    
+
+                    {/* Mobile helper tip */}
+                    <div className="sm:hidden mb-3">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                            💡 Press Enter to search or tap the 🔍 button
+                        </p>
+                    </div>
+
                     {/* Search Results */}
-                    <div className="max-h-80 overflow-auto border rounded-lg">
+                    <div className="border rounded-lg overflow-hidden">
                         {renderSearchResults()}
                     </div>
 
-                    {/* Add Selected Items Button */}
+                    {/* Add Selected Items Button - Mobile optimized */}
                     {selectedSearchItems.size > 0 && (
-                        <div className="mt-3 flex justify-between items-center">
-                            <span className="text-sm">
-                                {selectedSearchItems.size} item(s) selected
+                        <div className="mt-4 flex flex-col xs:flex-row gap-2 justify-between items-center">
+                            <span className="text-sm font-medium text-xs-tiny">
+                                ✅ {selectedSearchItems.size} item(s) selected
                             </span>
-                            <button 
+                            <button
                                 onClick={processSelectedItems}
-                                className={buttonClass('blue')}
+                                className="w-full xs:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors invoice-mobile-button"
                             >
                                 <PlusIcon className="h-4 w-4" />
                                 Add Selected Items ({selectedSearchItems.size})
@@ -1550,80 +1601,125 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                     )}
                 </div>
 
-                {/* Quick Actions Bar */}
-                <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-                    <button 
-                        onClick={handlePrint}
-                        disabled={invoiceItems.length === 0}
-                        className={buttonClass('blue', 'sm')}
-                    >
-                        <PrinterIcon className="h-4 w-4" />
-                        Print
-                    </button>
-                    <button 
-                        onClick={() => {
-                            if (window.confirm('Clear current invoice and start new?')) {
-                                setInvoiceItems([]);
-                                setInvoiceCounter(1);
-                                setInvoiceNumber('');
-                                setCustomerName('');
-                                setCustomerEmail('');
-                                setCustomerPhone('');
-                                setCustomerAddress('');
-                                setTaxRate(0);
-                                setDiscount(0);
-                                setPaymentMethod('');
-                                setNotes('');
-                                setTerms('Payment due within 30 days. Late payments subject to fees.');
-                            }
-                        }}
-                        className={buttonClass('red', 'sm')}
-                    >
-                        New Invoice
-                    </button>
-                    <button 
-                        onClick={handleSaveInvoice}
-                        disabled={saving || invoiceItems.length === 0 || !customerName}
-                        className={`${buttonClass('green', 'sm')} ${
-                            (saving || invoiceItems.length === 0 || !customerName) ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
-                    >
-                        <SaveIcon className="h-4 w-4" />
-                        {saving ? 'Saving...' : 'Save Invoice'}
-                    </button>
-                    
-                    {/* Status Dropdowns */}
-                    <GenericDropdown
-                        label="Invoice Status"
-                        current={invoiceStatus}
-                        options={INVOICE_STATUS_OPTIONS}
-                        onChange={(value) => {
-                            setInvoiceStatus(value);
-                            handleStatusUpdate('status', value);
-                        }}
-                        isDarkMode={isDarkMode}
-                    />
-                    <GenericDropdown
-                        label="Payment Status"
-                        current={paymentStatus}
-                        options={PAYMENT_STATUS_OPTIONS}
-                        onChange={(value) => {
-                            setPaymentStatus(value);
-                            handleStatusUpdate('paymentStatus', value);
-                        }}
-                        isDarkMode={isDarkMode}
-                    />
+                {/* Quick Actions Bar - Mobile Optimized */}
+                <div className="space-y-3">
+                    {/* Main action buttons - mobile optimized */}
+                    <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                        {/* Print button */}
+                        <button
+                            onClick={handlePrint}
+                            disabled={invoiceItems.length === 0}
+                            className={`flex-1 xs:flex-none flex items-center justify-center gap-2 px-4 py-3 sm:px-3 sm:py-2 rounded-lg font-medium text-sm transition-all duration-200 invoice-mobile-button ${invoiceItems.length === 0
+                                    ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white active:scale-95'
+                                }`}
+                        >
+                            <PrinterIcon className="h-4 w-4 flex-shrink-0" />
+                            <span className="whitespace-nowrap">Print</span>
+                        </button>
 
-                    {/* Tax Toggle Button */}
-                    <button
-                        onClick={() => setShowTax(!showTax)}
-                        className={`${buttonClass('gray', 'sm')} ${showTax ? '!bg-green-600 !text-white' : ''}`}
-                    >
-                        {showTax ? <CheckCircleIcon className="h-4 w-4" /> : <XIcon className="h-4 w-4" />}
-                        Tax {showTax ? 'ON' : 'OFF'}
-                    </button>
+                        {/* New Invoice button */}
+                        <button
+                            onClick={() => {
+                                if (window.confirm('Clear current invoice and start new?')) {
+                                    setInvoiceItems([]);
+                                    setInvoiceCounter(1);
+                                    setInvoiceNumber('');
+                                    setCustomerName('');
+                                    setCustomerEmail('');
+                                    setCustomerPhone('');
+                                    setCustomerAddress('');
+                                    setTaxRate(0);
+                                    setDiscount(0);
+                                    setPaymentMethod('');
+                                    setNotes('');
+                                    setTerms('Payment due within 30 days. Late payments subject to fees.');
+                                }
+                            }}
+                            className="flex-1 xs:flex-none flex items-center justify-center px-4 py-3 sm:px-3 sm:py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition-all duration-200 active:scale-95 invoice-mobile-button whitespace-nowrap"
+                        >
+                            New Invoice
+                        </button>
+
+                        {/* Save Invoice button */}
+                        <button
+                            onClick={handleSaveInvoice}
+                            disabled={saving || invoiceItems.length === 0 || !customerName}
+                            className={`flex-1 xs:flex-none flex items-center justify-center gap-2 px-4 py-3 sm:px-3 sm:py-2 rounded-lg font-medium text-sm transition-all duration-200 invoice-mobile-button ${(saving || invoiceItems.length === 0 || !customerName)
+                                    ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                    : 'bg-green-600 hover:bg-green-700 text-white active:scale-95'
+                                }`}
+                        >
+                            <SaveIcon className="h-4 w-4 flex-shrink-0" />
+                            <span className="whitespace-nowrap">
+                                {saving ? (
+                                    <>
+                                        <span className="inline-block animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-1"></span>
+                                        Saving...
+                                    </>
+                                ) : 'Save Invoice'}
+                            </span>
+                        </button>
+                    </div>
+
+                    {/* Status controls - stacked on mobile */}
+                    <div className="flex flex-col xs:flex-row flex-wrap gap-3 justify-center sm:justify-start">
+                        {/* Status dropdowns - full width on mobile */}
+                        <div className="w-full xs:w-auto invoice-status-mobile">
+                            <GenericDropdown
+                                label="Invoice Status"
+                                current={invoiceStatus}
+                                options={INVOICE_STATUS_OPTIONS}
+                                onChange={(value) => {
+                                    setInvoiceStatus(value);
+                                    handleStatusUpdate('status', value);
+                                }}
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
+
+                        <div className="w-full xs:w-auto invoice-status-mobile">
+                            <GenericDropdown
+                                label="Payment Status"
+                                current={paymentStatus}
+                                options={PAYMENT_STATUS_OPTIONS}
+                                onChange={(value) => {
+                                    setPaymentStatus(value);
+                                    handleStatusUpdate('paymentStatus', value);
+                                }}
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
+
+                        {/* Tax Toggle Button - full width on small screens */}
+                        <button
+                            onClick={() => setShowTax(!showTax)}
+                            className={`flex items-center justify-center gap-2 px-4 py-3 sm:px-3 sm:py-2 rounded-lg font-medium text-sm transition-all duration-200 active:scale-95 invoice-mobile-button ${showTax
+                                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                                    : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
+                                }`}
+                        >
+                            {showTax ? (
+                                <>
+                                    <CheckCircleIcon className="h-4 w-4 flex-shrink-0" />
+                                    <span className="whitespace-nowrap">Tax ON</span>
+                                </>
+                            ) : (
+                                <>
+                                    <XIcon className="h-4 w-4 flex-shrink-0" />
+                                    <span className="whitespace-nowrap">Tax OFF</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+
+                    {/* Mobile helper text */}
+                    <div className="sm:hidden">
+                        <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+                            💡 Swipe left/right to see more actions
+                        </p>
+                    </div>
                 </div>
-
                 {/* Invoice Form Section */}
                 <div className={`p-4 ${cardClass}`}>
                     <h2 className="font-semibold mb-3 flex items-center gap-2">
@@ -2053,5 +2149,5 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
         </div>
     );
 };
-
+/// GenericDropdown 
 export default InvoiceFromCsv;
