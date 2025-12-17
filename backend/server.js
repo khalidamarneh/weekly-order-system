@@ -205,10 +205,12 @@ const SOCKET_COOKIE_OPTIONS = {
 // ✅ ENHANCED: Secure token signers with minimal payload
 // ✅ SECURE: Minimal JWT payload (NO email, NO sensitive data)
 // ✅ ULTRA-SECURE: Anonymous JWT tokens (NO user identifiers)
+// ✅ FIXED: Include minimal ID in tokens for reliable authentication
 const signAccessToken = (user, type) => {
   const uat = new Date(user.updatedAt).getTime();
-  // ✅ COMPLETELY ANONYMOUS: No ID, no role, no email
+  // ✅ INCLUDE ID for reliable authentication while keeping it minimal
   return jwt.sign({ 
+    id: user.id, // ADD THIS BACK for reliable auth
     uat,
     type,
     purpose: 'access'
@@ -218,6 +220,7 @@ const signAccessToken = (user, type) => {
 const signRefreshToken = (user, type) => {
   const uat = new Date(user.updatedAt).getTime();
   return jwt.sign({ 
+    id: user.id, // ADD THIS BACK
     uat,
     type,
     purpose: 'refresh'
@@ -227,6 +230,7 @@ const signRefreshToken = (user, type) => {
 const signSocketToken = (user, type = 'PRIVATE') => {
   const uat = new Date(user.updatedAt).getTime();
   return jwt.sign({ 
+    id: user.id, // ADD THIS BACK
     uat,
     type,
     purpose: 'socket'
@@ -378,50 +382,71 @@ app.use((req, res, next) => {
 // FIRST ADMIN AUTHORIZATION MIDDLEWARE
 // ======================
 
+// ======================
+// FIRST ADMIN AUTHORIZATION MIDDLEWARE - ENHANCED
+// ======================
+
 const authorizeFirstAdmin = async (req, res, next) => {
   try {
+    console.log(`🔐 authorizeFirstAdmin check for user: ${req.user?.id}, role: ${req.user?.role}`);
+    
     if (!req.user) {
+      console.log('❌ No user in request');
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
     // Check if user is an admin
     if (req.user.type !== 'PRIVATE' || req.user.role !== 'ADMIN') {
+      console.log(`❌ User ${req.user.id} is not ADMIN (role: ${req.user.role})`);
       return res.status(403).json({ message: 'Admin access required' });
     }
 
     // Check if this is the FIRST ADMIN
     const userRecord = await prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { id: true, createdAt: true }
+      select: { id: true, createdAt: true, email: true, role: true }
     });
 
     if (!userRecord) {
-      return res.status(404).json({ message: 'User not found' });
+      console.log(`❌ User ${req.user.id} not found in database`);
+      return res.status(404).json({ message: 'User not found in database' });
     }
 
     // Find the oldest admin in the system
     const firstAdmin = await prisma.user.findFirst({
       where: { role: 'ADMIN' },
       orderBy: { createdAt: 'asc' },
-      select: { id: true }
+      select: { id: true, email: true, createdAt: true }
     });
 
     if (!firstAdmin) {
+      console.log('❌ No admin found in system - this should not happen');
       return res.status(500).json({ message: 'No admin found in system' });
     }
 
+    console.log(`📊 First admin check: current=${userRecord.id}, first=${firstAdmin.id}`);
+    
     // Check if current user is the first admin
     if (userRecord.id !== firstAdmin.id) {
+      console.log(`❌ User ${userRecord.email} is NOT the first admin (first admin: ${firstAdmin.email})`);
       return res.status(403).json({ 
         message: 'Only the first admin can manage users',
         hint: 'Contact the system administrator for user management'
       });
     }
 
+    console.log(`✅ User ${userRecord.email} is the first admin - authorized`);
     next();
   } catch (err) {
-    console.error('First admin authorization error:', err);
-    return res.status(500).json({ message: 'Authorization check failed' });
+    console.error('❌ First admin authorization error:', {
+      message: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+      userId: req.user?.id
+    });
+    return res.status(500).json({ 
+      message: 'Authorization check failed',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
@@ -429,12 +454,12 @@ const authorizeFirstAdmin = async (req, res, next) => {
 // ✅ SECURITY FIX 3: Fixed token invalidation logic
 // ✅ UPDATED: Authenticate middleware for anonymous tokens
 // ✅ FIXED: Strict authentication middleware
+// ✅ FIXED: authenticate middleware to work with anonymous tokens
 const authenticate = async (req, res, next) => {
   try {
     const token = extractTokenFromRequest(req);
 
     if (!token) {
-      // ✅ STRICT: No token = no access
       req.user = null;
       return res.status(401).json({ message: 'Authentication required' });
     }
@@ -443,7 +468,6 @@ const authenticate = async (req, res, next) => {
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
-      // ✅ STRICT: Invalid token = no access
       console.log('Token verification failed:', err.message);
       req.user = null;
       return res.status(401).json({ message: 'Invalid token' });
@@ -458,12 +482,20 @@ const authenticate = async (req, res, next) => {
 
     let user;
     if (decoded.type === 'PRIVATE') {
+      // ✅ FIX: Find by updatedAt timestamp, but verify with potential user ID if available
+      // Multiple users could have same updatedAt, so we need additional checks
       user = await prisma.user.findFirst({
         where: {
           updatedAt: new Date(decoded.uat)
         },
         select: { id: true, email: true, role: true, updatedAt: true }
       });
+      
+      // ✅ ADDED: Additional check - if we have id in token (for backward compatibility)
+      if (decoded.id && user && user.id !== decoded.id) {
+        console.log('Token id mismatch with found user');
+        user = null;
+      }
     } else if (decoded.type === 'PUBLIC') {
       user = await prisma.publicUser.findFirst({
         where: {
@@ -485,6 +517,10 @@ const authenticate = async (req, res, next) => {
       role: user.role || 'PUBLIC_USER', 
       type: decoded.type 
     };
+    
+    // ✅ DEBUG: Log for troubleshooting
+    console.log(`✅ Authenticated: user ${req.user.id}, role ${req.user.role}`);
+    
     return next();
   } catch (err) {
     console.error('Authenticate middleware error:', err);
@@ -1028,6 +1064,8 @@ app.post('/api/auth/refresh', async (req, res) => {
 // Get all clients (show to all admins)
 app.get('/api/clients', authenticate, authorizeAdmin, async (req, res) => {
   try {
+    console.log(`🔍 GET /api/clients - Request by user: ${req.user?.id}, role: ${req.user?.role}`);
+    
     const clients = await prisma.user.findMany({
       where: {
         role: { in: ['CLIENT', 'ADMIN'] }
@@ -1047,27 +1085,39 @@ app.get('/api/clients', authenticate, authorizeAdmin, async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
+    console.log(`✅ Found ${clients.length} users`);
     res.json(clients);
   } catch (err) {
-    console.error('Get clients error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('❌ Get clients error:', err);
+    res.status(500).json({ 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 
 // Update client (FIRST ADMIN only)
 app.put('/api/clients/:id', authenticate, authorizeFirstAdmin, [
-  body('email').isEmail().normalizeEmail(),
-  body('name').notEmpty().trim()
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('name').notEmpty().trim().withMessage('Name is required')
 ], async (req, res) => {
+  console.log(`🔧 PUT /api/clients/${req.params.id} - Request by: ${req.user?.id}`);
+  
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('❌ Validation errors:', errors.array());
       return res.status(400).json({ 
-        message: errors.array()[0].msg || 'Validation failed' 
+        message: errors.array()[0].msg || 'Validation failed',
+        errors: errors.array()
       });
     }
 
     const { email, name, company, address, tel, gps, role } = req.body;
+    
+    console.log(`📝 Updating user ${req.params.id} with:`, { 
+      email, name, company, address, tel, gps, role 
+    });
 
     // Check if email is already taken by another user
     const existingUser = await prisma.user.findFirst({
@@ -1078,7 +1128,11 @@ app.put('/api/clients/:id', authenticate, authorizeFirstAdmin, [
     });
 
     if (existingUser) {
-      return res.status(400).json({ message: 'Email already taken' });
+      console.log(`❌ Email ${email} already taken by user: ${existingUser.id}`);
+      return res.status(400).json({ 
+        message: 'Email already taken',
+        existingUserId: existingUser.id
+      });
     }
 
     const updatedUser = await prisma.user.update({
@@ -1086,10 +1140,10 @@ app.put('/api/clients/:id', authenticate, authorizeFirstAdmin, [
       data: {
         email,
         name,
-        company,
-        address,
-        tel,
-        gps,
+        company: company || '',
+        address: address || '',
+        tel: tel || '',
+        gps: gps || '',
         ...(role && { role }),
         updatedAt: new Date()
       },
@@ -1107,35 +1161,107 @@ app.put('/api/clients/:id', authenticate, authorizeFirstAdmin, [
       }
     });
 
+    console.log(`✅ User ${req.params.id} updated successfully`);
     res.json(updatedUser);
   } catch (err) {
-    console.error('Update client error:', err);
+    console.error('❌ Update client error:', {
+      message: err.message,
+      code: err.code,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+      targetId: req.params.id,
+      userId: req.user?.id
+    });
+    
     if (err.code === 'P2025') {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ 
+        message: 'User not found',
+        userId: req.params.id
+      });
     }
-    res.status(500).json({ message: 'Server error' });
+    
+    if (err.code === 'P2002') {
+      return res.status(400).json({ 
+        message: 'Email already in use',
+        error: 'Duplicate email violation'
+      });
+    }
+    
+    res.status(500).json({ 
+      message: 'Failed to update user',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+      hint: 'Check database constraints or connection'
+    });
   }
 });
 
 // Delete client (FIRST ADMIN only)
 app.delete('/api/clients/:id', authenticate, authorizeFirstAdmin, async (req, res) => {
+  console.log(`🗑️ DELETE /api/clients/${req.params.id} - Request by: ${req.user?.id}`);
+  
   try {
     // Prevent self-deletion
     if (req.params.id === req.user.id) {
-      return res.status(400).json({ message: 'You cannot delete your own account' });
+      console.log(`❌ User ${req.user.id} attempted to delete themselves`);
+      return res.status(400).json({ 
+        message: 'You cannot delete your own account',
+        hint: 'Ask another first admin to delete your account if needed'
+      });
     }
+
+    // Check if user exists before deleting
+    const userToDelete = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, email: true, role: true, createdAt: true }
+    });
+
+    if (!userToDelete) {
+      console.log(`❌ User ${req.params.id} not found for deletion`);
+      return res.status(404).json({ 
+        message: 'User not found',
+        userId: req.params.id
+      });
+    }
+
+    console.log(`🗑️ Attempting to delete user:`, userToDelete);
 
     await prisma.user.delete({
       where: { id: req.params.id }
     });
 
-    res.json({ message: 'User deleted successfully' });
+    console.log(`✅ User ${req.params.id} deleted successfully`);
+    res.json({ 
+      message: 'User deleted successfully',
+      deletedUser: { id: userToDelete.id, email: userToDelete.email }
+    });
   } catch (err) {
-    console.error('Delete client error:', err);
+    console.error('❌ Delete client error:', {
+      message: err.message,
+      code: err.code,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+      targetId: req.params.id,
+      userId: req.user?.id
+    });
+    
     if (err.code === 'P2025') {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ 
+        message: 'User not found',
+        userId: req.params.id
+      });
     }
-    res.status(500).json({ message: 'Server error' });
+    
+    if (err.code === 'P2003') {
+      return res.status(409).json({ 
+        message: 'Cannot delete user',
+        error: 'User has related records (orders, products, etc.)',
+        hint: 'Delete related records first or update your Prisma schema to cascade delete'
+      });
+    }
+    
+    res.status(500).json({ 
+      message: 'Failed to delete user',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+      hint: 'Check database constraints or connection'
+    });
   }
 });
 
@@ -1143,11 +1269,15 @@ app.delete('/api/clients/:id', authenticate, authorizeFirstAdmin, async (req, re
 app.post('/api/users/:id/reset-password', authenticate, authorizeFirstAdmin, [
   body('newPassword').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
 ], async (req, res) => {
+  console.log(`🔐 POST /api/users/${req.params.id}/reset-password - Request by: ${req.user?.id}`);
+  
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('❌ Password validation errors:', errors.array());
       return res.status(400).json({ 
-        message: errors.array()[0].msg || 'Validation failed'
+        message: errors.array()[0].msg || 'Validation failed',
+        errors: errors.array()
       });
     }
 
@@ -1161,28 +1291,62 @@ app.post('/api/users/:id/reset-password', authenticate, authorizeFirstAdmin, [
       }
     });
 
+    console.log(`✅ Password reset for user ${req.params.id}`);
     res.json({ 
       message: 'Password reset successfully',
       note: 'User will need to use this new password to log in'
     });
   } catch (err) {
-    console.error('Reset password error:', err);
+    console.error('❌ Reset password error:', {
+      message: err.message,
+      code: err.code,
+      targetId: req.params.id,
+      userId: req.user?.id
+    });
+    
     if (err.code === 'P2025') {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ 
+        message: 'User not found',
+        userId: req.params.id
+      });
     }
-    res.status(500).json({ message: 'Server error' });
+    
+    res.status(500).json({ 
+      message: 'Failed to reset password',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 
-// ---------- Global error handler ----------
+// ---------- Enhanced Global error handler ----------
 app.use((err, req, res, next) => {
-  console.error('Unhandled error', err);
-  if (err instanceof multer.MulterError) return res.status(400).json({ message: err.message });
-  res.status(500).json({ message: 'Internal Server Error' });
+  console.error('🔥 UNHANDLED ERROR:', {
+    message: err.message,
+    stack: err.stack,
+    code: err.code,
+    name: err.name,
+    path: req.path,
+    method: req.method,
+    user: req.user?.id
+  });
+  
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ message: err.message });
+  }
+  
+  // Don't expose internal errors in production
+  const errorMessage = process.env.NODE_ENV === 'production' 
+    ? 'Internal Server Error' 
+    : err.message;
+    
+  res.status(500).json({ 
+    message: errorMessage,
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
 });
 
-
 module.exports = { app, httpServer, prisma };
+
 // ======================
 // CLIENT ORDER CONTROL ROUTES - COMPLETE FIXED VERSION
 // ======================
