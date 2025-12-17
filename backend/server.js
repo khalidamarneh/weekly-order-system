@@ -1146,6 +1146,23 @@ app.put('/api/clients/:id', authenticate, authorizeFirstAdmin, [
       });
     }
 
+    const updateData = {
+    email,
+    name,
+    company: company || '',
+    address: address || '',
+    tel: tel || '',
+    gps: gps || '',
+    ...(role && { role }),
+    updatedAt: new Date()
+  };
+  
+  // ✅ ADD: If password is provided, hash it and update
+  if (password && password.length >= 6) {
+    const hashedPassword = await bcrypt.hash(password, 12);
+    updateData.password = hashedPassword;
+  }
+
     const updatedUser = await prisma.user.update({
       where: { id: userId }, // ✅ Now using integer
       data: {

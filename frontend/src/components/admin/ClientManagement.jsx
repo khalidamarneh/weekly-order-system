@@ -22,7 +22,7 @@ import socketService from "../../services/socket";
  * ClientManagement - FIRST ADMIN ONLY
  * - Only the FIRST ADMIN (oldest admin) can create/update/delete users
  * - All admins can view users list
- * - First admin can reset passwords for any user
+ * - First admin can reset passwords for any user (including themselves)
  * - Password requirements: Minimum 6 characters
  */
 const ClientManagement = ({ isDarkMode }) => {
@@ -319,8 +319,12 @@ const ClientManagement = ({ isDarkMode }) => {
           tel: modalData.tel,
           gps: modalData.gps,
           ...(modalData.role ? { role: modalData.role } : {}),
-          ...(modalData.password ? { password: modalData.password } : {}),
         };
+
+        // Only include password if provided (for updating own account)
+        if (modalData.password && modalData.password.length >= 6) {
+          payload.password = modalData.password;
+        }
 
         await axios.put(`${apiBase}/api/clients/${modalData.id}`, payload, {
           withCredentials: true,
@@ -374,9 +378,11 @@ const ClientManagement = ({ isDarkMode }) => {
       return;
     }
 
+    // Allow self-deletion if user confirms (with warning)
     if (id === currentUser?.id) {
-      showError("You cannot delete your own account");
-      return;
+      if (!window.confirm("⚠️ WARNING: You are about to delete YOUR OWN account!\n\nThis will permanently remove your access to the system.\n\nAre you absolutely sure?")) {
+        return;
+      }
     }
 
     const userToDelete = users.find(u => u.id === id);
@@ -392,7 +398,17 @@ const ClientManagement = ({ isDarkMode }) => {
       });
       
       showInfo("User deleted successfully");
-      await fetchUsers();
+      
+      // If user deleted themselves, they should be logged out
+      if (id === currentUser?.id) {
+        showInfo("Your account has been deleted. You will be logged out.");
+        // Redirect to logout or home page
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 2000);
+      } else {
+        await fetchUsers();
+      }
     } catch (err) {
       console.error("Failed to delete user:", err);
       const errorMsg = err?.response?.data?.message || "Error deleting user. Please try again.";
@@ -437,6 +453,11 @@ const ClientManagement = ({ isDarkMode }) => {
 
       setResetPasswordModal(false);
       showInfo(`Password reset successfully for ${resetPasswordData.userName}`);
+      
+      // If resetting own password, show special message
+      if (resetPasswordData.userId === currentUser?.id) {
+        showInfo("Your password has been reset. You can now log in with the new password.");
+      }
     } catch (err) {
       console.error("Failed to reset password:", err);
       const errorMsg = err?.response?.data?.message || "Error resetting password. Please try again.";
@@ -602,7 +623,7 @@ const ClientManagement = ({ isDarkMode }) => {
           </div>
           <p className={`mt-1 text-sm ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
             {isFirstAdmin 
-              ? "First Admin: You can manage all users" 
+              ? "First Admin: You can manage all users (including yourself)" 
               : currentUser?.role === 'ADMIN' 
                 ? "Admin: View-only access (only First Admin can modify users)" 
                 : "Client: User list view"}
@@ -713,7 +734,7 @@ const ClientManagement = ({ isDarkMode }) => {
 
                   <div className="flex space-x-2 ml-2">
                     {/* Generate temp password (First Admin only) */}
-                    {isFirstAdmin && u.id !== currentUser?.id && (
+                    {isFirstAdmin && (
                       <button
                         onClick={() => generateTempPassword(u.id, u.name)}
                         disabled={saving}
@@ -725,7 +746,7 @@ const ClientManagement = ({ isDarkMode }) => {
                     )}
 
                     {/* Reset password (manual) - First Admin only */}
-                    {isFirstAdmin && u.id !== currentUser?.id && (
+                    {isFirstAdmin && (
                       <button
                         onClick={() => openResetPasswordModal(u)}
                         disabled={saving}
@@ -737,7 +758,7 @@ const ClientManagement = ({ isDarkMode }) => {
                     )}
 
                     {/* Edit - First Admin only */}
-                    {isFirstAdmin && u.id !== currentUser?.id && (
+                    {isFirstAdmin && (
                       <button
                         onClick={() => openEditModal(u)}
                         disabled={saving}
@@ -748,13 +769,13 @@ const ClientManagement = ({ isDarkMode }) => {
                       </button>
                     )}
 
-                    {/* Delete - First Admin only, not self */}
-                    {isFirstAdmin && u.id !== currentUser?.id && (
+                    {/* Delete - First Admin only, with warning for self-deletion */}
+                    {isFirstAdmin && (
                       <button
                         onClick={() => handleDelete(u.id)}
                         disabled={deleting === u.id}
-                        title="Delete user (First Admin only)"
-                        className={`text-red-600 hover:text-red-900 p-1 disabled:opacity-50 ${isDarkMode ? "hover:text-red-400" : ""}`}
+                        title={u.id === currentUser?.id ? "Delete your own account (Warning!)" : "Delete user"}
+                        className={`${u.id === currentUser?.id ? 'text-red-700 hover:text-red-900' : 'text-red-600 hover:text-red-900'} p-1 disabled:opacity-50 ${isDarkMode ? "hover:text-red-400" : ""}`}
                       >
                         {deleting === u.id ? (
                           <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
@@ -828,7 +849,7 @@ const ClientManagement = ({ isDarkMode }) => {
             <div className="flex justify-between items-center p-4 border-b border-gray-200">
               <div>
                 <h2 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                  {modalData.id ? "Edit User" : "Add User"}
+                  {modalData.id ? (modalData.id === currentUser?.id ? "Edit My Account" : "Edit User") : "Add User"}
                 </h2>
                 <p className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"} mt-1`}>
                   First Admin Only • Password: minimum 6 characters
@@ -903,6 +924,27 @@ const ClientManagement = ({ isDarkMode }) => {
                     </p>
                   </div>
                 )}
+
+                {/* Optional: Password field for updating own account */}
+                {modalData.id && modalData.id === currentUser?.id && (
+                  <div>
+                    <label className={`block text-sm font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                      New Password (optional)
+                    </label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={modalData.password}
+                      onChange={handleChange}
+                      placeholder="Leave blank to keep current password"
+                      disabled={saving}
+                      className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 ${isDarkMode ? "bg-gray-700 border-gray-600 text-white focus:ring-blue-400" : "bg-white border-gray-300 text-gray-900 focus:ring-blue-500"}`}
+                    />
+                    <p className={`text-xs mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
+                      Leave blank to keep your current password
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className={`flex justify-end space-x-3 p-4 border-t ${isDarkMode ? "border-gray-700" : "border-gray-200"}`}>
@@ -925,7 +967,9 @@ const ClientManagement = ({ isDarkMode }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto">
           <div className={`rounded-lg shadow-xl w-full max-w-md mx-auto my-4 ${isDarkMode ? "bg-gray-800 text-white" : "bg-white"}`}>
             <div className="flex justify-between items-center p-4 border-b border-gray-200">
-              <h2 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Reset Password</h2>
+              <h2 className={`text-lg font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                {resetPasswordData.userId === currentUser?.id ? "Reset My Password" : "Reset Password"}
+              </h2>
               <button onClick={() => setResetPasswordModal(false)} disabled={saving} className={`text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50 ${isDarkMode ? "hover:text-gray-300" : ""}`}>
                 <XIcon className="w-5 h-5" />
               </button>
@@ -933,7 +977,12 @@ const ClientManagement = ({ isDarkMode }) => {
 
             <form onSubmit={handleResetPassword} className="p-4 space-y-4">
               <div className={`p-3 rounded-lg ${isDarkMode ? "bg-gray-700" : "bg-gray-100"}`}>
-                <p className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>Reset password for: <strong>{resetPasswordData.userName}</strong></p>
+                <p className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
+                  {resetPasswordData.userId === currentUser?.id 
+                    ? "Reset your own password:" 
+                    : `Reset password for: `}
+                  <strong>{resetPasswordData.userName}</strong>
+                </p>
                 <p className={`text-xs mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>First Admin Only • Password: minimum 6 characters</p>
               </div>
 
