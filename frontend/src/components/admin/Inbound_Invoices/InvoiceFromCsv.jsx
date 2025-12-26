@@ -1,3 +1,4 @@
+//frontend\src\components\admin\Inbound_Invoices\InvoiceFromCsv.jsx//
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
     DocumentIcon,
@@ -69,8 +70,8 @@ const GenericDropdown = React.memo(({
                     setOpen((o) => !o);
                 }}
                 className={`w-full flex justify-between items-center px-4 py-3 sm:px-3 sm:py-2 rounded-lg border text-sm transition-all duration-200 active:scale-[0.98] ${isDarkMode
-                        ? 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700'
-                        : 'bg-gray-100 border-gray-300 text-gray-900 hover:bg-gray-200'
+                    ? 'bg-gray-800 border-gray-700 text-white hover:bg-gray-700'
+                    : 'bg-gray-100 border-gray-300 text-gray-900 hover:bg-gray-200'
                     }`}
                 aria-expanded={open}
                 aria-haspopup="listbox"
@@ -91,8 +92,8 @@ const GenericDropdown = React.memo(({
                                     setOpen(false);
                                 }}
                                 className={`w-full text-left px-4 py-3 sm:py-2 text-sm transition-colors duration-150 ${opt === current
-                                        ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-medium"
-                                        : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                    ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-medium"
+                                    : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                                     }`}
                                 role="option"
                                 aria-selected={opt === current}
@@ -171,23 +172,20 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
     const searchInputRef = useRef(null);
 
     // Styling classes
-    const cardClass = `rounded-lg shadow-lg border ${
-        isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-    }`;
+    const cardClass = `rounded-lg shadow-lg border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        }`;
 
-    const inputClass = `w-full rounded-lg px-3 py-2 text-sm border ${
-        isDarkMode
+    const inputClass = `w-full rounded-lg px-3 py-2 text-sm border ${isDarkMode
             ? 'bg-gray-800 border-gray-600 text-white'
             : 'bg-white border-gray-300 text-gray-900'
-    }`;
+        }`;
 
     const buttonClass = (color = 'gray', size = 'md') => {
-        const base = `rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
-            size === 'sm' ? 'px-3 py-1.5 text-sm' : 'px-4 py-2 text-sm'
-        }`;
+        const base = `rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${size === 'sm' ? 'px-3 py-1.5 text-sm' : 'px-4 py-2 text-sm'
+            }`;
         const colors = {
-            gray: isDarkMode 
-                ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+            gray: isDarkMode
+                ? 'bg-gray-700 hover:bg-gray-600 text-white'
                 : 'bg-gray-200 hover:bg-gray-300 text-gray-700',
             blue: 'bg-blue-600 hover:bg-blue-700 text-white',
             green: 'bg-green-600 hover:bg-green-700 text-white',
@@ -199,135 +197,468 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
         return `${base} ${colors[color]}`;
     };
 
-    // Add CSS to document head
-    useEffect(() => {
-        const invoiceTableCSS = `
+// Add CSS to document head
+useEffect(() => {
+    const invoiceTableCSS = `
+    .invoice-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin-top: 0;
+        box-shadow: none;
+        border-radius: 0;
+        table-layout: auto;
+    }
+
+    .invoice-table th, .invoice-table td {
+        border-right: 2px solid #007bff;
+        border-bottom: 2px solid #007bff;
+        padding: 8px 5px;
+        text-align: center;
+        word-wrap: break-word;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        height: auto;
+        box-sizing: border-box;
+    }
+
+    .invoice-table th:last-child, .invoice-table td:last-child {
+        border-right: none;
+    }
+
+    .invoice-table tr:last-child th, .invoice-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .invoice-table th {
+        background-color: #ffc107;
+        color: #212529;
+        font-weight: bold;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        height: auto;
+        padding: 8px 5px;
+        box-sizing: border-box;
+        text-align: center;
+        box-shadow: inset 0 1px 0 #007bff,
+                    inset 0 -1px 0 #007bff,
+                    0 2px 2px -1px rgba(0, 0, 0, 0.2);
+    }
+
+    .invoice-table tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+
+    .invoice-table tr:hover {
+        background-color: #e9ecef;
+    }
+
+    .invoice-table th:nth-child(3), .invoice-table td:nth-child(3) {
+        width: auto;
+        min-width: 150px;
+        text-align: center;
+        max-width: none;
+        padding: 8px 5px;
+    }
+
+    .invoice-table th:nth-child(2), .invoice-table td:nth-child(2) {
+        width: auto;
+        min-width: 120px;
+        max-width: none;
+        padding: 8px 5px;
+    }
+
+    .invoice-table td {
+        padding: 8px 5px;
+    }
+
+    .invoice-table input[type="number"],
+    .invoice-table input[type="text"] {
+        width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+        padding: 5px;
+        font-size: 0.95rem;
+        border: 1px solid #ced4da;
+        border-radius: 3px;
+    }
+
+    .invoice-table .part-no-input,
+    .invoice-table .description-input {
+        text-align: center;
+    }
+
+    .invoice-total-row {
+        font-weight: bold;
+        background-color: #ffc107 !important;
+        height: auto;
+    }
+
+    .invoice-total-row td {
+        border-top: 2px solid #212529;
+        border-right: 2px solid #007bff;
+        border-bottom: 2px solid #007bff;
+        padding: 8px 5px;
+        box-sizing: border-box;
+        text-align: center;
+    }
+
+    .invoice-total-row td:last-child {
+        border-right: none;
+    }
+
+    .editable-cell {
+        cursor: pointer;
+        transition: background-color 0.2s;
+        min-height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .editable-cell:hover {
+        background-color: #e3f2fd !important;
+    }
+
+    .dark .editable-cell:hover {
+        background-color: #374151 !important;
+    }
+
+    /* =========================================== */
+    /* MOBILE RESPONSIVE FIXES - UPDATED */
+    /* =========================================== */
+
+    /* Mobile scrolling container */
+    .invoice-table-scroll-container {
+        position: relative;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 8px;
+        margin: 0 -4px;
+        padding: 0 4px;
+    }
+
+    .invoice-table-scroll-container::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .invoice-table-scroll-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .invoice-table-scroll-container::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
+
+    .invoice-table-scroll-container::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+    .dark .invoice-table-scroll-container::-webkit-scrollbar-track {
+        background: #374151;
+    }
+
+    .dark .invoice-table-scroll-container::-webkit-scrollbar-thumb {
+        background: #6b7280;
+    }
+
+    /* For mobile screens (768px and below) */
+    @media (max-width: 768px) {
+        .invoice-table-container {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin: 0;
+            padding: 0;
+            position: relative;
+        }
+
         .invoice-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            margin-top: 0;
-            box-shadow: none;
-            border-radius: 0;
-            table-layout: auto;
+            min-width: 700px; /* Slightly wider for better readability */
+            font-size: 0.875rem;
+            margin: 0;
         }
-
-        .invoice-table th, .invoice-table td {
-            border-right: 2px solid #007bff;
-            border-bottom: 2px solid #007bff;
-            padding: 8px 5px;
-            text-align: center;
-            word-wrap: break-word;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            height: 10px;
-            box-sizing: border-box;
-        }
-
-        .invoice-table th:last-child, .invoice-table td:last-child {
-            border-right: none;
-        }
-
-        .invoice-table tr:last-child th, .invoice-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .invoice-table th {
-            background-color: #ffc107;
-            color: #212529;
-            font-weight: bold;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            height: 10px;
-            padding: 2px;
-            box-sizing: border-box;
-            text-align: center;
-            box-shadow: inset 0 1px 0 #007bff,
-                        inset 0 -1px 0 #007bff,
-                        0 2px 2px -1px rgba(0, 0, 0, 0.2);
-        }
-
-        .invoice-table tr:nth-child(even) {
-            background-color: #f8f9fa;
-        }
-
-        .invoice-table tr:hover {
-            background-color: #e9ecef;
-        }
-
-        .invoice-table th:nth-child(3), .invoice-table td:nth-child(3) {
-            width: auto;
-            min-width: 150px;
-            text-align: center;
-            max-width: none;
-            padding: 8px 5px;
-        }
-
-        .invoice-table th:nth-child(2), .invoice-table td:nth-child(2) {
-            width: auto;
-            min-width: 120px;
-            max-width: none;
-            padding: 8px 5px;
-        }
-
+        
+        .invoice-table th,
         .invoice-table td {
-            padding: 8px 5px;
+            padding: 10px 6px !important;
+            min-width: 90px;
+            white-space: nowrap;
+            font-size: 0.875rem;
         }
-
-        .invoice-table input[type="number"],
-        .invoice-table input[type="text"] {
-            width: 100%;
-            box-sizing: border-box;
-            text-align: center;
-            padding: 5px;
-            font-size: 0.95rem;
-            border: 1px solid #ced4da;
-            border-radius: 3px;
+        
+        /* Specific column widths for mobile */
+        .invoice-table th:nth-child(1),
+        .invoice-table td:nth-child(1) {
+            min-width: 50px; /* No# */
+            max-width: 50px;
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            background: inherit;
         }
-
-        .invoice-table .part-no-input,
-        .invoice-table .description-input {
-            text-align: center;
+        
+        .invoice-table th:nth-child(2),
+        .invoice-table td:nth-child(2) {
+            min-width: 100px; /* Part No */
+            max-width: 120px;
+            position: sticky;
+            left: 50px;
+            z-index: 5;
+            background: inherit;
         }
-
-        .invoice-total-row {
-            font-weight: bold;
-            background-color: #ffc107 !important;
-            height: 15px;
+        
+        .invoice-table th:nth-child(3),
+        .invoice-table td:nth-child(3) {
+            min-width: 180px; /* Description - wider for mobile */
+            max-width: 200px;
+            white-space: normal;
         }
-
-        .invoice-total-row td {
-            border-top: 2px solid #212529;
-            border-right: 2px solid #007bff;
-            border-bottom: 2px solid #007bff;
-            padding: 3px;
-            box-sizing: border-box;
-            text-align: center;
+        
+        .invoice-table th:nth-child(4),
+        .invoice-table td:nth-child(4) {
+            min-width: 80px; /* Quantity */
+            max-width: 90px;
         }
-
-        .invoice-total-row td:last-child {
-            border-right: none;
+        
+        .invoice-table th:nth-child(5),
+        .invoice-table td:nth-child(5) {
+            min-width: 100px; /* Unit Price */
+            max-width: 110px;
         }
-
-        .editable-cell {
-            cursor: pointer;
-            transition: background-color 0.2s;
-            min-height: 20px;
+        
+        .invoice-table th:nth-child(6),
+        .invoice-table td:nth-child(6) {
+            min-width: 100px; /* Total Price */
+            max-width: 110px;
+        }
+        
+        .invoice-table th:nth-child(7),
+        .invoice-table td:nth-child(7) {
+            min-width: 80px; /* Action */
+            max-width: 90px;
+            position: sticky;
+            right: 0;
+            z-index: 5;
+            background: inherit;
+        }
+        
+        .invoice-table .editable-cell {
+            min-height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-
-        .editable-cell:hover {
-            background-color: #e3f2fd !important;
+        
+        .invoice-table input[type="number"],
+        .invoice-table input[type="text"] {
+            font-size: 0.875rem;
+            padding: 6px 4px;
+            min-height: 36px;
+            width: 100%;
         }
-
-        .dark .editable-cell:hover {
-            background-color: #374151 !important;
+        
+        .invoice-total-row td {
+            padding: 10px 6px !important;
+            font-size: 0.875rem;
         }
-        `;
-
+        
+        /* Mobile scroll hint */
+        .mobile-scroll-hint {
+            display: block;
+            text-align: center;
+            padding: 8px;
+            font-size: 0.75rem;
+            color: #6b7280;
+            background: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .dark .mobile-scroll-hint {
+            background: #374151;
+            color: #9ca3af;
+            border-top: 1px solid #4b5563;
+        }
+    }
+    
+    /* For small mobile screens (640px and below) */
+    @media (max-width: 640px) {
+        .invoice-table {
+            min-width: 650px;
+            font-size: 0.85rem;
+        }
+        
+        .invoice-table th,
+        .invoice-table td {
+            padding: 8px 5px !important;
+            min-width: 85px;
+        }
+        
+        .invoice-table th:nth-child(1),
+        .invoice-table td:nth-child(1) {
+            min-width: 45px;
+            left: 0;
+        }
+        
+        .invoice-table th:nth-child(2),
+        .invoice-table td:nth-child(2) {
+            min-width: 90px;
+            left: 45px;
+        }
+        
+        .invoice-table th:nth-child(3),
+        .invoice-table td:nth-child(3) {
+            min-width: 160px;
+        }
+        
+        .invoice-table input[type="number"],
+        .invoice-table input[type="text"] {
+            font-size: 0.85rem;
+            padding: 5px 3px;
+            min-height: 34px;
+        }
+    }
+    
+    /* For very small screens (480px and below) */
+    @media (max-width: 480px) {
+        .invoice-table {
+            min-width: 620px;
+            font-size: 0.8rem;
+        }
+        
+        .invoice-table th,
+        .invoice-table td {
+            padding: 7px 4px !important;
+            min-width: 80px;
+        }
+        
+        .invoice-table th:nth-child(1),
+        .invoice-table td:nth-child(1) {
+            min-width: 40px;
+            left: 0;
+        }
+        
+        .invoice-table th:nth-child(2),
+        .invoice-table td:nth-child(2) {
+            min-width: 85px;
+            left: 40px;
+        }
+        
+        .invoice-table th:nth-child(3),
+        .invoice-table td:nth-child(3) {
+            min-width: 140px;
+        }
+        
+        .invoice-table input[type="number"],
+        .invoice-table input[type="text"] {
+            font-size: 0.8rem;
+            padding: 4px 2px;
+            min-height: 32px;
+        }
+    }
+    
+    /* For iPhone SE/320px screens */
+    @media (max-width: 320px) {
+        .invoice-table {
+            min-width: 580px;
+            font-size: 0.75rem;
+        }
+        
+        .invoice-table th,
+        .invoice-table td {
+            padding: 6px 3px !important;
+        }
+    }
+    
+    /* Dark mode fixes for invoice table */
+    .dark .invoice-table th {
+        background-color: #d97706; /* Amber 600 for dark mode */
+        color: #1f2937; /* Dark text */
+    }
+    
+    .dark .invoice-table tr:nth-child(even) {
+        background-color: #374151; /* gray-700 */
+    }
+    
+    .dark .invoice-table tr:hover {
+        background-color: #4b5563; /* gray-600 */
+    }
+    
+    .dark .invoice-table tr:nth-child(even):hover {
+        background-color: #4b5563; /* gray-600 */
+    }
+    
+    .dark .invoice-table td {
+        color: #e5e7eb; /* gray-200 for text */
+    }
+    
+    .dark .invoice-table input[type="number"],
+    .dark .invoice-table input[type="text"] {
+        background-color: #374151; /* gray-700 */
+        border-color: #4b5563; /* gray-600 */
+        color: #f9fafb; /* gray-50 */
+    }
+    
+    .dark .invoice-table input[type="number"]:focus,
+    .dark .invoice-table input[type="text"]:focus {
+        border-color: #3b82f6; /* blue-500 */
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    }
+    
+    .dark .invoice-total-row {
+        background-color: #d97706 !important; /* Amber 600 */
+    }
+    
+    .dark .invoice-total-row td {
+        color: #1f2937; /* gray-900 for contrast */
+        font-weight: bold;
+    }
+    
+    /* Fix for mobile touch targets */
+    @media (max-width: 768px) {
+        .invoice-table button {
+            min-height: 36px;
+            min-width: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px;
+        }
+    }
+    
+    /* Fix for print styles */
+    @media print {
+        .invoice-table {
+            border: 1px solid #000 !important;
+            width: 100% !important;
+            min-width: 100% !important;
+        }
+        
+        .invoice-table th,
+        .invoice-table td {
+            border: 1px solid #000 !important;
+            padding: 6px !important;
+            color: #000 !important;
+        }
+        
+        .invoice-table th {
+            background-color: #ffc107 !important;
+            color: #000 !important;
+        }
+        
+        .invoice-table-scroll-container {
+            overflow: visible !important;
+        }
+    }
+    `;
         const styleSheet = document.createElement("style");
         styleSheet.innerText = invoiceTableCSS;
         document.head.appendChild(styleSheet);
@@ -338,13 +669,12 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
             }
         };
     }, []);
-
     // Format numbers to 2 decimal places with thousands separators
     const formatNumber = (num) => {
         if (num === null || num === undefined) return '0.00';
         const number = typeof num === 'string' ? parseFloat(num) : num;
         if (isNaN(number)) return '0.00';
-        
+
         return new Intl.NumberFormat('en-US', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
@@ -1610,8 +1940,8 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                             onClick={handlePrint}
                             disabled={invoiceItems.length === 0}
                             className={`flex-1 xs:flex-none flex items-center justify-center gap-2 px-4 py-3 sm:px-3 sm:py-2 rounded-lg font-medium text-sm transition-all duration-200 invoice-mobile-button ${invoiceItems.length === 0
-                                    ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                                    : 'bg-blue-600 hover:bg-blue-700 text-white active:scale-95'
+                                ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                : 'bg-blue-600 hover:bg-blue-700 text-white active:scale-95'
                                 }`}
                         >
                             <PrinterIcon className="h-4 w-4 flex-shrink-0" />
@@ -1646,8 +1976,8 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                             onClick={handleSaveInvoice}
                             disabled={saving || invoiceItems.length === 0 || !customerName}
                             className={`flex-1 xs:flex-none flex items-center justify-center gap-2 px-4 py-3 sm:px-3 sm:py-2 rounded-lg font-medium text-sm transition-all duration-200 invoice-mobile-button ${(saving || invoiceItems.length === 0 || !customerName)
-                                    ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                                    : 'bg-green-600 hover:bg-green-700 text-white active:scale-95'
+                                ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                : 'bg-green-600 hover:bg-green-700 text-white active:scale-95'
                                 }`}
                         >
                             <SaveIcon className="h-4 w-4 flex-shrink-0" />
@@ -1695,8 +2025,8 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                         <button
                             onClick={() => setShowTax(!showTax)}
                             className={`flex items-center justify-center gap-2 px-4 py-3 sm:px-3 sm:py-2 rounded-lg font-medium text-sm transition-all duration-200 active:scale-95 invoice-mobile-button ${showTax
-                                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                                    : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
+                                ? 'bg-green-600 hover:bg-green-700 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
                                 }`}
                         >
                             {showTax ? (
@@ -1728,9 +2058,13 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                     </h2>
 
                     {/* Customer Info */}
+                    {/* Customer Info */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div>
-                            <label className="block text-sm mb-1">Customer</label>
+                            <label className={`block text-sm mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                }`}>
+                                Customer
+                            </label>
                             <div className="flex gap-1">
                                 <select
                                     value={customerId || ''}
@@ -1765,7 +2099,10 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm mb-1">Customer Name</label>
+                            <label className={`block text-sm mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                }`}>
+                                Customer Name
+                            </label>
                             <input
                                 type="text"
                                 value={customerName}
@@ -1775,7 +2112,10 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                             />
                         </div>
                         <div>
-                            <label className="block text-sm mb-1">Invoice Number</label>
+                            <label className={`block text-sm mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                }`}>
+                                Invoice Number
+                            </label>
                             <input
                                 type="text"
                                 value={invoiceNumber}
@@ -1785,33 +2125,55 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                             />
                         </div>
                         <div>
-                            <label className="block text-sm mb-1">Date</label>
-                            <div className={`px-3 py-2 rounded-lg border text-sm ${
-                                isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-100 border-gray-300 text-gray-900'
-                            }`}>
+                            <label className={`block text-sm mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                }`}>
+                                Date
+                            </label>
+                            <div className={`px-3 py-2 rounded-lg border text-sm ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-100 border-gray-300 text-gray-900'
+                                }`}>
                                 {new Date().toLocaleDateString()}
                             </div>
                         </div>
                     </div>
 
-                    {/* Additional Customer Fields */}
+                    {/* Additional Customer Fields - Fixed Dark Mode */}
                     {(customerEmail || customerPhone || customerAddress) && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-700">
+                        <div className={`mt-4 p-4 border rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4 ${isDarkMode
+                                ? 'bg-gray-700 border-gray-600 text-gray-200'
+                                : 'bg-gray-50 border-gray-200 text-gray-700'
+                            }`}>
                             <div>
-                                <label className="block text-xs font-medium mb-1">Email</label>
-                                <div className="text-sm">{customerEmail || '-'}</div>
+                                <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                                    }`}>
+                                    Email
+                                </label>
+                                <div className={`text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-800'
+                                    }`}>
+                                    {customerEmail || '-'}
+                                </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium mb-1">Phone</label>
-                                <div className="text-sm">{customerPhone || '-'}</div>
+                                <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                                    }`}>
+                                    Phone
+                                </label>
+                                <div className={`text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-800'
+                                    }`}>
+                                    {customerPhone || '-'}
+                                </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-medium mb-1">Address</label>
-                                <div className="text-sm">{customerAddress || '-'}</div>
+                                <label className={`block text-xs font-medium mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                                    }`}>
+                                    Address
+                                </label>
+                                <div className={`text-sm ${isDarkMode ? 'text-gray-200' : 'text-gray-800'
+                                    }`}>
+                                    {customerAddress || '-'}
+                                </div>
                             </div>
                         </div>
                     )}
-
                     {/* Tax, Discount, and Payment */}
                     <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div>
@@ -1924,50 +2286,69 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                     </div>
                 </div>
 
-                {/* Invoice Items Table with Click-to-Edit */}
-                <div className={`p-4 ${cardClass}`}>
-                    <h2 className="font-semibold mb-4 flex items-center gap-2">
-                        <ShoppingBagIcon className="h-5 w-5 text-purple-500" />
-                        Invoice Items
-                    </h2>
-                    
-                    <div className="overflow-x-auto mb-4 border rounded-lg">
-                        <table className="invoice-table">
-                            <thead>
-                                <tr>
-                                    <th>No#</th>
-                                    <th>Part No</th>
-                                    <th>Description</th>
-                                    <th>Quantity</th>
-                                    <th>Unit Price</th>
-                                    <th>Total Price</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {renderInvoiceTable()}
-                            </tbody>
-                            {invoiceItems.length > 0 && (
-                                <tfoot>
-                                    <tr className="invoice-total-row">
-                                        <td colSpan="5" className="text-center">
-                                            Total Invoice Amount:
-                                        </td>
-                                        <td className="text-lg">
-                                            {formatMoney(invoiceTotal)}
-                                        </td>
-                                        <td></td>
+{/* Invoice Items Table with Click-to-Edit */}
+<div className={`p-4 ${cardClass}`}>
+    <h2 className="font-semibold mb-4 flex items-center gap-2">
+        <ShoppingBagIcon className="h-5 w-5 text-purple-500" />
+        Invoice Items
+        <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
+            {invoiceItems.length} item(s)
+        </span>
+    </h2>
+
+                    {/* Mobile-optimized table container */}
+                    <div className="invoice-table-scroll-container">
+                        <div className="invoice-table-container">
+                            <table className="invoice-table">
+                                <thead>
+                                    <tr>
+                                        <th className="whitespace-nowrap">No#</th>
+                                        <th className="whitespace-nowrap">Part No</th>
+                                        <th className="whitespace-nowrap">Description</th>
+                                        <th className="whitespace-nowrap">Quantity</th>
+                                        <th className="whitespace-nowrap">Unit Price</th>
+                                        <th className="whitespace-nowrap">Total Price</th>
+                                        <th className="whitespace-nowrap">Action</th>
                                     </tr>
-                                </tfoot>
-                            )}
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {renderInvoiceTable()}
+                                </tbody>
+                                {invoiceItems.length > 0 && (
+                                    <tfoot>
+                                        <tr className="invoice-total-row">
+                                            <td colSpan="5" className="text-center font-semibold">
+                                                Total Invoice Amount:
+                                            </td>
+                                            <td className="text-lg font-bold">
+                                                {formatMoney(invoiceTotal)}
+                                            </td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                )}
+                            </table>
+
+                            {/* Mobile scroll hint */}
+                            <div className="mobile-scroll-hint">
+                                <div className="flex items-center justify-center gap-2">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                                    </svg>
+                                    <span>Scroll horizontally to see all columns</span>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Add Empty Item Button */}
-                    <div className="flex justify-start">
-                        <button 
+                    <div className="flex justify-start mt-4">
+                        <button
                             onClick={handleAddEmptyItem}
-                            className={buttonClass('green', 'sm')}
+                            className={`${buttonClass('green', 'sm')} flex items-center gap-2`}
                         >
                             <PlusIcon className="h-4 w-4" />
                             Add Empty Item
@@ -1975,56 +2356,85 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                     </div>
                 </div>
 
-                {/* Totals + Actions */}
+                {/* Totals + Actions - Mobile Optimized */}
                 <div className={`p-4 ${cardClass}`}>
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                        <div className="space-y-2">
-                            <p className="text-sm">
-                                <strong>Subtotal:</strong> {formatMoney(invoiceSubtotal)}
-                            </p>
-                            {showTax && taxAmount > 0 && (
-                                <p className="text-sm">
-                                    <strong>Tax ({taxRate}%):</strong> {formatMoney(taxAmount)}
-                                </p>
-                            )}
-                            {discount > 0 && (
-                                <p className="text-sm">
-                                    <strong>Discount:</strong> -{formatMoney(discount)}
-                                </p>
-                            )}
-                            {profitMetrics.totalRevenue > 0 && (
-                                <>
-                                    <p className="text-sm border-t pt-2">
-                                        <strong>Cost:</strong> {formatMoney(profitMetrics.totalCost)}
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div className="space-y-3 flex-1 w-full">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <p className="text-sm">
+                                        <strong>Subtotal:</strong> {formatMoney(invoiceSubtotal)}
                                     </p>
-                                    <p className="text-sm text-green-600">
-                                        <strong>Profit:</strong> {formatMoney(profitMetrics.totalProfit)}
-                                    </p>
-                                </>
-                            )}
-                            <p className="text-lg font-semibold border-t pt-2">
-                                Grand Total: {formatMoney(invoiceTotal)}
-                            </p>
+                                    {showTax && taxAmount > 0 && (
+                                        <p className="text-sm">
+                                            <strong>Tax ({taxRate}%):</strong> {formatMoney(taxAmount)}
+                                        </p>
+                                    )}
+                                    {discount > 0 && (
+                                        <p className="text-sm">
+                                            <strong>Discount:</strong> -{formatMoney(discount)}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {profitMetrics.totalRevenue > 0 && (
+                                    <div className="space-y-1">
+                                        <p className="text-sm">
+                                            <strong>Cost:</strong> {formatMoney(profitMetrics.totalCost)}
+                                        </p>
+                                        <p className="text-sm">
+                                            <strong className="text-green-600 dark:text-green-400">Profit:</strong>
+                                            <span className="ml-1 text-green-600 dark:text-green-400">
+                                                {formatMoney(profitMetrics.totalProfit)}
+                                            </span>
+                                        </p>
+                                        <p className="text-sm">
+                                            <strong>Margin:</strong>
+                                            <span className={`ml-1 ${profitMetrics.profitMargin >= 0
+                                                ? 'text-green-600 dark:text-green-400'
+                                                : 'text-red-600 dark:text-red-400'
+                                                }`}>
+                                                {profitMetrics.profitMargin.toFixed(2)}%
+                                            </span>
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="pt-3 border-t">
+                                <p className="text-lg font-bold">
+                                    Grand Total: {formatMoney(invoiceTotal)}
+                                </p>
+                            </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
-                            <button 
+                        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                            <button
                                 onClick={handlePrint}
                                 disabled={invoiceItems.length === 0}
-                                className={buttonClass('blue', 'sm')}
+                                className={`${buttonClass('blue', 'sm')} flex items-center justify-center gap-2 flex-1 sm:flex-none ${invoiceItems.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}
                             >
                                 <PrinterIcon className="h-4 w-4" />
-                                Print
+                                <span>Print</span>
                             </button>
-                            <button 
+                            <button
                                 onClick={handleSaveInvoice}
                                 disabled={saving || invoiceItems.length === 0 || !customerName}
-                                className={`${buttonClass('green', 'sm')} ${
-                                    (saving || invoiceItems.length === 0 || !customerName) ? 'opacity-50 cursor-not-allowed' : ''
-                                }`}
+                                className={`${buttonClass('green', 'sm')} flex items-center justify-center gap-2 flex-1 sm:flex-none ${(saving || invoiceItems.length === 0 || !customerName) ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}
                             >
-                                <SaveIcon className="h-4 w-4" />
-                                {saving ? 'Saving...' : 'Save Invoice'}
+                                {saving ? (
+                                    <>
+                                        <span className="inline-block animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                                        <span>Saving...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <SaveIcon className="h-4 w-4" />
+                                        <span>Save Invoice</span>
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>
@@ -2050,7 +2460,7 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                             </button>
                         </div>
                         <div className="p-4 overflow-auto max-h-[70vh]">
-                            <CustomerManagement 
+                            <CustomerManagement
                                 isDarkMode={isDarkMode}
                                 onCustomerSelect={handleCustomerSelect}
                                 embedded={true}
@@ -2087,11 +2497,10 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
                                         </thead>
                                         <tbody>
                                             {allProducts.slice(1).map((row, rowIndex) => (
-                                                <tr key={rowIndex} className={`${
-                                                    rowIndex % 2 === 0 
-                                                        ? (isDarkMode ? 'bg-gray-800' : 'bg-white') 
+                                                <tr key={rowIndex} className={`${rowIndex % 2 === 0
+                                                        ? (isDarkMode ? 'bg-gray-800' : 'bg-white')
                                                         : (isDarkMode ? 'bg-gray-750' : 'bg-gray-50')
-                                                }`}>
+                                                    }`}>
                                                     {row.map((cell, cellIndex) => (
                                                         <td key={cellIndex} className="border px-2 py-1 text-sm text-center break-words min-w-[100px] max-w-[200px]">
                                                             {cell}
@@ -2149,5 +2558,5 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
         </div>
     );
 };
-/// GenericDropdown 
+
 export default InvoiceFromCsv;
