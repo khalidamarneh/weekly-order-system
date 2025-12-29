@@ -199,476 +199,37 @@ const InvoiceFromCsv = ({ isDarkMode = false, setActiveSubTab, onNavigate, onVie
 
 // Add CSS to document head
 useEffect(() => {
-    const invoiceTableCSS = `
-    .invoice-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0;
-        margin-top: 0;
-        box-shadow: none;
-        border-radius: 0;
-        table-layout: auto;
-    }
-
-    .invoice-table th, .invoice-table td {
-        border-right: 2px solid #007bff;
-        border-bottom: 2px solid #007bff;
-        padding: 8px 5px;
-        text-align: center;
-        word-wrap: break-word;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        height: auto;
-        box-sizing: border-box;
-    }
-
-    .invoice-table th:last-child, .invoice-table td:last-child {
-        border-right: none;
-    }
-
-    .invoice-table tr:last-child th, .invoice-table tr:last-child td {
-        border-bottom: none;
-    }
-
-    .invoice-table th {
-        background-color: #ffc107;
-        color: #212529;
-        font-weight: bold;
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        height: auto;
-        padding: 8px 5px;
-        box-sizing: border-box;
-        text-align: center;
-        box-shadow: inset 0 1px 0 #007bff,
-                    inset 0 -1px 0 #007bff,
-                    0 2px 2px -1px rgba(0, 0, 0, 0.2);
-    }
-
-    .invoice-table tr:nth-child(even) {
-        background-color: #f8f9fa;
-    }
-
-    .invoice-table tr:hover {
-        background-color: #e9ecef;
-    }
-
-    .invoice-table th:nth-child(3), .invoice-table td:nth-child(3) {
-        width: auto;
-        min-width: 150px;
-        text-align: center;
-        max-width: none;
-        padding: 8px 5px;
-    }
-
-    .invoice-table th:nth-child(2), .invoice-table td:nth-child(2) {
-        width: auto;
-        min-width: 120px;
-        max-width: none;
-        padding: 8px 5px;
-    }
-
-    .invoice-table td {
-        padding: 8px 5px;
-    }
-
-    .invoice-table input[type="number"],
-    .invoice-table input[type="text"] {
-        width: 100%;
-        box-sizing: border-box;
-        text-align: center;
-        padding: 5px;
-        font-size: 0.95rem;
-        border: 1px solid #ced4da;
-        border-radius: 3px;
-    }
-
-    .invoice-table .part-no-input,
-    .invoice-table .description-input {
-        text-align: center;
-    }
-
-    .invoice-total-row {
-        font-weight: bold;
-        background-color: #ffc107 !important;
-        height: auto;
-    }
-
-    .invoice-total-row td {
-        border-top: 2px solid #212529;
-        border-right: 2px solid #007bff;
-        border-bottom: 2px solid #007bff;
-        padding: 8px 5px;
-        box-sizing: border-box;
-        text-align: center;
-    }
-
-    .invoice-total-row td:last-child {
-        border-right: none;
-    }
-
-    .editable-cell {
-        cursor: pointer;
-        transition: background-color 0.2s;
-        min-height: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .editable-cell:hover {
-        background-color: #e3f2fd !important;
-    }
-
-    .dark .editable-cell:hover {
-        background-color: #374151 !important;
-    }
-
-    /* =========================================== */
-    /* MOBILE RESPONSIVE FIXES - UPDATED */
-    /* =========================================== */
-
-    /* Mobile scrolling container */
-    .invoice-table-scroll-container {
-        position: relative;
-        width: 100%;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        border-radius: 8px;
-        margin: 0 -4px;
-        padding: 0 4px;
-    }
-
-    .invoice-table-scroll-container::-webkit-scrollbar {
-        height: 8px;
-    }
-
-    .invoice-table-scroll-container::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 4px;
-    }
-
-    .invoice-table-scroll-container::-webkit-scrollbar-thumb {
-        background: #888;
-        border-radius: 4px;
-    }
-
-    .invoice-table-scroll-container::-webkit-scrollbar-thumb:hover {
-        background: #555;
-    }
-
-    .dark .invoice-table-scroll-container::-webkit-scrollbar-track {
-        background: #374151;
-    }
-
-    .dark .invoice-table-scroll-container::-webkit-scrollbar-thumb {
-        background: #6b7280;
-    }
-
-    /* For mobile screens (768px and below) */
-    @media (max-width: 768px) {
-        .invoice-table-container {
-            width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            margin: 0;
-            padding: 0;
-            position: relative;
-        }
-
-        .invoice-table {
-            min-width: 700px; /* Slightly wider for better readability */
-            font-size: 0.875rem;
-            margin: 0;
-        }
-        
-        .invoice-table th,
-        .invoice-table td {
-            padding: 10px 6px !important;
-            min-width: 90px;
-            white-space: nowrap;
-            font-size: 0.875rem;
-        }
-        
-        /* Specific column widths for mobile */
-        .invoice-table th:nth-child(1),
-        .invoice-table td:nth-child(1) {
-            min-width: 50px; /* No# */
-            max-width: 50px;
-            position: sticky;
-            left: 0;
-            z-index: 5;
-            background: inherit;
-        }
-        
-        .invoice-table th:nth-child(2),
-        .invoice-table td:nth-child(2) {
-            min-width: 100px; /* Part No */
-            max-width: 120px;
-            position: sticky;
-            left: 50px;
-            z-index: 5;
-            background: inherit;
-        }
-        
-        .invoice-table th:nth-child(3),
-        .invoice-table td:nth-child(3) {
-            min-width: 180px; /* Description - wider for mobile */
-            max-width: 200px;
-            white-space: normal;
-        }
-        
-        .invoice-table th:nth-child(4),
-        .invoice-table td:nth-child(4) {
-            min-width: 80px; /* Quantity */
-            max-width: 90px;
-        }
-        
-        .invoice-table th:nth-child(5),
-        .invoice-table td:nth-child(5) {
-            min-width: 100px; /* Unit Price */
-            max-width: 110px;
-        }
-        
-        .invoice-table th:nth-child(6),
-        .invoice-table td:nth-child(6) {
-            min-width: 100px; /* Total Price */
-            max-width: 110px;
-        }
-        
-        .invoice-table th:nth-child(7),
-        .invoice-table td:nth-child(7) {
-            min-width: 80px; /* Action */
-            max-width: 90px;
-            position: sticky;
-            right: 0;
-            z-index: 5;
-            background: inherit;
-        }
-        
-        .invoice-table .editable-cell {
-            min-height: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .invoice-table input[type="number"],
-        .invoice-table input[type="text"] {
-            font-size: 0.875rem;
-            padding: 6px 4px;
-            min-height: 36px;
-            width: 100%;
-        }
-        
-        .invoice-total-row td {
-            padding: 10px 6px !important;
-            font-size: 0.875rem;
-        }
-        
-        /* Mobile scroll hint */
-        .mobile-scroll-hint {
-            display: block;
-            text-align: center;
-            padding: 8px;
-            font-size: 0.75rem;
-            color: #6b7280;
-            background: #f9fafb;
-            border-top: 1px solid #e5e7eb;
-            border-radius: 0 0 8px 8px;
-        }
-        
-        .dark .mobile-scroll-hint {
-            background: #374151;
-            color: #9ca3af;
-            border-top: 1px solid #4b5563;
-        }
-    }
-    
-    /* For small mobile screens (640px and below) */
-    @media (max-width: 640px) {
-        .invoice-table {
-            min-width: 650px;
-            font-size: 0.85rem;
-        }
-        
-        .invoice-table th,
-        .invoice-table td {
-            padding: 8px 5px !important;
-            min-width: 85px;
-        }
-        
-        .invoice-table th:nth-child(1),
-        .invoice-table td:nth-child(1) {
-            min-width: 45px;
-            left: 0;
-        }
-        
-        .invoice-table th:nth-child(2),
-        .invoice-table td:nth-child(2) {
-            min-width: 90px;
-            left: 45px;
-        }
-        
-        .invoice-table th:nth-child(3),
-        .invoice-table td:nth-child(3) {
-            min-width: 160px;
-        }
-        
-        .invoice-table input[type="number"],
-        .invoice-table input[type="text"] {
-            font-size: 0.85rem;
-            padding: 5px 3px;
-            min-height: 34px;
-        }
-    }
-    
-    /* For very small screens (480px and below) */
-    @media (max-width: 480px) {
-        .invoice-table {
-            min-width: 620px;
-            font-size: 0.8rem;
-        }
-        
-        .invoice-table th,
-        .invoice-table td {
-            padding: 7px 4px !important;
-            min-width: 80px;
-        }
-        
-        .invoice-table th:nth-child(1),
-        .invoice-table td:nth-child(1) {
-            min-width: 40px;
-            left: 0;
-        }
-        
-        .invoice-table th:nth-child(2),
-        .invoice-table td:nth-child(2) {
-            min-width: 85px;
-            left: 40px;
-        }
-        
-        .invoice-table th:nth-child(3),
-        .invoice-table td:nth-child(3) {
-            min-width: 140px;
-        }
-        
-        .invoice-table input[type="number"],
-        .invoice-table input[type="text"] {
-            font-size: 0.8rem;
-            padding: 4px 2px;
-            min-height: 32px;
-        }
-    }
-    
-    /* For iPhone SE/320px screens */
-    @media (max-width: 320px) {
-        .invoice-table {
-            min-width: 580px;
-            font-size: 0.75rem;
-        }
-        
-        .invoice-table th,
-        .invoice-table td {
-            padding: 6px 3px !important;
-        }
-    }
-    
-    /* Dark mode fixes for invoice table */
-    .dark .invoice-table th {
-        background-color: #d97706; /* Amber 600 for dark mode */
-        color: #1f2937; /* Dark text */
-    }
-    
-    .dark .invoice-table tr:nth-child(even) {
-        background-color: #374151; /* gray-700 */
-    }
-    
-    .dark .invoice-table tr:hover {
-        background-color: #4b5563; /* gray-600 */
-    }
-    
-    .dark .invoice-table tr:nth-child(even):hover {
-        background-color: #4b5563; /* gray-600 */
-    }
-    
-    .dark .invoice-table td {
-        color: #e5e7eb; /* gray-200 for text */
-    }
-    
-    .dark .invoice-table input[type="number"],
-    .dark .invoice-table input[type="text"] {
-        background-color: #374151; /* gray-700 */
-        border-color: #4b5563; /* gray-600 */
-        color: #f9fafb; /* gray-50 */
-    }
-    
-    .dark .invoice-table input[type="number"]:focus,
-    .dark .invoice-table input[type="text"]:focus {
-        border-color: #3b82f6; /* blue-500 */
-        outline: none;
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-    }
-    
-    .dark .invoice-total-row {
-        background-color: #d97706 !important; /* Amber 600 */
-    }
-    
-    .dark .invoice-total-row td {
-        color: #1f2937; /* gray-900 for contrast */
-        font-weight: bold;
-    }
-    
-    /* Fix for mobile touch targets */
-    @media (max-width: 768px) {
-        .invoice-table button {
-            min-height: 36px;
-            min-width: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 6px;
-        }
-    }
-    
-    /* Fix for print styles */
-    @media print {
-        .invoice-table {
-            border: 1px solid #000 !important;
-            width: 100% !important;
-            min-width: 100% !important;
-        }
-        
-        .invoice-table th,
-        .invoice-table td {
-            border: 1px solid #000 !important;
-            padding: 6px !important;
-            color: #000 !important;
-        }
-        
-        .invoice-table th {
-            background-color: #ffc107 !important;
-            color: #000 !important;
-        }
-        
-        .invoice-table-scroll-container {
-            overflow: visible !important;
-        }
-    }
-    `;
-        const styleSheet = document.createElement("style");
-        styleSheet.innerText = invoiceTableCSS;
-        document.head.appendChild(styleSheet);
-
-        return () => {
-            if (document.head.contains(styleSheet)) {
-                document.head.removeChild(styleSheet);
+    // Only add mobile scroll hint styling
+    const mobileScrollCSS = `
+        @media (max-width: 768px) {
+            .mobile-scroll-hint {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                padding: 6px;
+                font-size: 0.7rem;
+                color: #6b7280;
+                margin-bottom: 8px;
             }
-        };
-    }, []);
+            
+            .dark .mobile-scroll-hint {
+                color: #9ca3af;
+            }
+        }
+    `;
+
+    const styleSheet = document.createElement("style");
+    styleSheet.innerText = mobileScrollCSS;
+    document.head.appendChild(styleSheet);
+
+    return () => {
+        if (document.head.contains(styleSheet)) {
+            document.head.removeChild(styleSheet);
+        }
+    };
+}, []);
+
     // Format numbers to 2 decimal places with thousands separators
     const formatNumber = (num) => {
         if (num === null || num === undefined) return '0.00';
@@ -1074,15 +635,27 @@ useEffect(() => {
         }));
     };
 
-    const handleAddEmptyItem = () => {
-        addItemToInvoice({
-            partNo: '',
-            description: '',
-            unitPrice: '0.00',
-            quantity: 1,
-            unitCost: 0
-        });
+    // Update the handleAddEmptyItem function (around line 880)
+const handleAddEmptyItem = () => {
+    const newItem = {
+        id: invoiceCounter,
+        number: invoiceItems.length + 1,
+        partNo: '',
+        description: '',
+        quantity: 1,
+        unitPrice: 0,
+        totalPrice: 0,
+        unitCost: 0,
+        markupAmount: 0,
+        markupPercentage: 0
     };
+
+    setInvoiceItems(prev => [...prev, newItem]);
+    setInvoiceCounter(prev => prev + 1);
+    
+    // Show notification
+    showNotification('Empty item added. Click on any cell to edit.', 'success');
+};
 
     // Calculate invoice totals
     const invoiceSubtotal = useMemo(() => {
@@ -1458,38 +1031,49 @@ useEffect(() => {
     }, [performSearch]);
 
     // Click-to-Edit functionality
-    const makeCellEditable = (itemId, field, currentValue) => {
-        setEditingCell({ itemId, field, value: currentValue });
-    };
+   const makeCellEditable = (itemId, field, currentValue) => {
+    // Ensure currentValue is a string for text fields
+    const value = typeof currentValue === 'string' ? currentValue : String(currentValue || '');
+    setEditingCell({ itemId, field, value });
+};
 
-    const handleCellEditSave = () => {
-        if (!editingCell) return;
+// Update the handleCellEditSave function (around line 1035)
+const handleCellEditSave = () => {
+    if (!editingCell) return;
 
-        const { itemId, field, value } = editingCell;
-        
-        if (field === 'quantity') {
-            updateItemField(itemId, field, parseInt(value) || 1);
-        } else if (field === 'unitPrice') {
-            // Remove currency symbols and commas for parsing
-            const cleanValue = value.replace(/[$,]/g, '');
-            updateItemField(itemId, field, parseFloat(cleanValue) || 0);
-        } else {
-            updateItemField(itemId, field, value);
+    const { itemId, field, value } = editingCell;
+    
+    if (field === 'quantity') {
+        updateItemField(itemId, field, parseInt(value) || 1);
+    } else if (field === 'unitPrice') {
+        // Remove currency symbols and commas for parsing - but only if it's a string
+        let cleanValue = value;
+        if (typeof value === 'string') {
+            cleanValue = value.replace(/[$,]/g, '');
         }
+        updateItemField(itemId, field, parseFloat(cleanValue) || 0);
+    } else {
+        // For text fields (description, partNo), just update directly
+        updateItemField(itemId, field, value || '');
+    }
 
-        setEditingCell(null);
-    };
+    setEditingCell(null);
+};
 
     const handleCellEditCancel = () => {
         setEditingCell(null);
     };
 
-    const handleEditingChange = (e) => {
-        setEditingCell(prev => ({
-            ...prev,
-            value: e.target.value
-        }));
-    };
+    // Update the handleEditingChange function (around line 1045)
+const handleEditingChange = (e) => {
+    if (!editingCell) return;
+    
+    const newValue = e.target.value;
+    setEditingCell(prev => ({
+        ...prev,
+        value: newValue
+    }));
+};
 
     const handleEditingKeyPress = (e) => {
         if (e.key === 'Enter') {
@@ -1499,51 +1083,53 @@ useEffect(() => {
         }
     };
 
-    // Render editable cell content
-    const renderEditableCell = (itemId, field, value, isNumeric = false) => {
-        if (editingCell && editingCell.itemId === itemId && editingCell.field === field) {
-            return (
-                <input
-                    type={isNumeric ? "number" : "text"}
-                    value={editingCell.value}
-                    onChange={handleEditingChange}
-                    onKeyDown={handleEditingKeyPress}
-                    onBlur={handleCellEditSave}
-                    autoFocus
-                    className={`w-full px-2 py-1 text-sm border rounded ${
-                        isNumeric ? 'text-center' : 'text-left'
-                    } ${
-                        isDarkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                    }`}
-                    style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        border: '1px solid #ced4da',
-                        borderRadius: '3px',
-                        padding: '3px',
-                        fontSize: '0.95rem'
-                    }}
-                />
-            );
-        }
-
-        let displayValue = value;
-        if (field === 'unitPrice') {
-            displayValue = formatMoney(value);
-        }
-
+// Update the renderEditableCell function (around line 1050)
+const renderEditableCell = (itemId, field, value, isNumeric = false) => {
+    if (editingCell && editingCell.itemId === itemId && editingCell.field === field) {
         return (
-            <div 
-                className="editable-cell w-full h-full flex items-center justify-center"
-                onClick={() => makeCellEditable(itemId, field, value)}
-                title="Click to edit"
-            >
-                {displayValue || ''}
-            </div>
+            <input
+                type={isNumeric ? "number" : "text"}
+                value={editingCell.value || ''}
+                onChange={handleEditingChange}
+                onKeyDown={handleEditingKeyPress}
+                onBlur={handleCellEditSave}
+                autoFocus
+                className={`w-full px-2 py-1 text-sm border rounded ${
+                    isNumeric ? 'text-center' : 'text-left'
+                } ${
+                    isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500' 
+                        : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+                }`}
+                style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    minHeight: '32px'
+                }}
+                placeholder={field === 'description' ? 'Enter description...' : field === 'partNo' ? 'Enter part number...' : ''}
+            />
         );
-    };
+    }
+
+    let displayValue = value;
+    if (field === 'unitPrice') {
+        displayValue = formatMoney(value);
+    } else if (field === 'description' || field === 'partNo') {
+        displayValue = value || '';
+    }
+
+    return (
+        <div 
+            className="editable-cell w-full h-full flex items-center justify-center min-h-[32px] px-2"
+            onClick={() => makeCellEditable(itemId, field, value)}
+            title="Click to edit"
+        >
+            <span className={`${!displayValue ? 'text-gray-400 italic' : ''}`}>
+                {displayValue || (field === 'description' ? 'Click to add description' : 'Click to add part no')}
+            </span>
+        </div>
+    );
+};
 
     // Render search results table
     const renderSearchResults = () => {
@@ -1632,65 +1218,7 @@ useEffect(() => {
         );
     };
 
-    // Updated renderInvoiceTable function using click-to-edit
-    const renderInvoiceTable = () => {
-        if (invoiceItems.length === 0) {
-            return (
-                <tr>
-                    <td colSpan="7" style={{textAlign: 'center'}}>
-                        No items added to invoice.
-                    </td>
-                </tr>
-            );
-        }
 
-        return (
-            <>
-                {invoiceItems.map((item) => (
-                    <tr key={item.id} className={isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-blue-50'}>
-                        <td className="font-medium whitespace-nowrap">
-                            {item.number}
-                        </td>
-                        <td>
-                            {renderEditableCell(item.id, 'partNo', item.partNo, false)}
-                        </td>
-                        <td>
-                            {renderEditableCell(item.id, 'description', item.description, false)}
-                        </td>
-                        <td>
-                            {renderEditableCell(item.id, 'quantity', item.quantity, true)}
-                        </td>
-                        <td>
-                            {renderEditableCell(item.id, 'unitPrice', item.unitPrice, true)}
-                        </td>
-                        <td className="font-semibold text-green-600">
-                            {formatMoney(item.totalPrice)}
-                        </td>
-                        <td className="text-center whitespace-nowrap">
-                            <button
-                                onClick={() => deleteItem(item.id)}
-                                className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs"
-                            >
-                                <TrashIcon className="h-3 w-3 inline" />
-                            </button>
-                        </td>
-                    </tr>
-                ))}
-                
-                {showTax && taxAmount > 0 && (
-                    <tr className={`${isDarkMode ? 'bg-gray-700' : 'bg-blue-50'} font-semibold`}>
-                        <td colSpan="5" className="text-right">
-                            Tax ({taxRate}%):
-                        </td>
-                        <td className="text-green-600">
-                            {formatMoney(taxAmount)}
-                        </td>
-                        <td></td>
-                    </tr>
-                )}
-            </>
-        );
-    };
 
     return (
         <div className={`min-h-screen px-3 sm:px-5 py-4 ${
@@ -2296,65 +1824,111 @@ useEffect(() => {
         </span>
     </h2>
 
-                    {/* Mobile-optimized table container */}
-                    <div className="invoice-table-scroll-container">
-                        <div className="invoice-table-container">
-                            <table className="invoice-table">
-                                <thead>
-                                    <tr>
-                                        <th className="whitespace-nowrap">No#</th>
-                                        <th className="whitespace-nowrap">Part No</th>
-                                        <th className="whitespace-nowrap">Description</th>
-                                        <th className="whitespace-nowrap">Quantity</th>
-                                        <th className="whitespace-nowrap">Unit Price</th>
-                                        <th className="whitespace-nowrap">Total Price</th>
-                                        <th className="whitespace-nowrap">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {renderInvoiceTable()}
-                                </tbody>
-                                {invoiceItems.length > 0 && (
-                                    <tfoot>
-                                        <tr className="invoice-total-row">
-                                            <td colSpan="5" className="text-center font-semibold">
-                                                Total Invoice Amount:
-                                            </td>
-                                            <td className="text-lg font-bold">
-                                                {formatMoney(invoiceTotal)}
-                                            </td>
-                                            <td></td>
-                                        </tr>
-                                    </tfoot>
-                                )}
-                            </table>
+    {/* SIMPLIFIED: Mobile-friendly table with horizontal scroll */}
+    <div className="relative">
+        {/* Mobile scroll hint */}
+        <div className="md:hidden mb-2 flex items-center justify-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+            <span>Swipe left/right to view all columns</span>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            </svg>
+        </div>
 
-                            {/* Mobile scroll hint */}
-                            <div className="mobile-scroll-hint">
-                                <div className="flex items-center justify-center gap-2">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                                    </svg>
-                                    <span>Scroll horizontally to see all columns</span>
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                                    </svg>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+        {/* Table container with proper horizontal scroll */}
+        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+            <table className="w-full min-w-[700px] border-collapse">
+                <thead>
+                    <tr className={isDarkMode ? 'bg-amber-600 text-gray-900' : 'bg-yellow-400 text-gray-900'}>
+                        <th className="px-3 py-2 text-sm font-semibold text-center border-r border-blue-500 min-w-[50px]">No#</th>
+                        <th className="px-3 py-2 text-sm font-semibold text-center border-r border-blue-500 min-w-[100px]">Part No</th>
+                        <th className="px-3 py-2 text-sm font-semibold text-center border-r border-blue-500 min-w-[150px]">Description</th>
+                        <th className="px-3 py-2 text-sm font-semibold text-center border-r border-blue-500 min-w-[80px]">Quantity</th>
+                        <th className="px-3 py-2 text-sm font-semibold text-center border-r border-blue-500 min-w-[100px]">Unit Price</th>
+                        <th className="px-3 py-2 text-sm font-semibold text-center border-r border-blue-500 min-w-[100px]">Total Price</th>
+                        <th className="px-3 py-2 text-sm font-semibold text-center min-w-[80px]">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {invoiceItems.length === 0 ? (
+                        <tr>
+                            <td colSpan="7" className="px-3 py-6 text-center text-gray-500 dark:text-gray-400 italic">
+                                No items in invoice. Add items from search results or use "Add Empty Item" below.
+                            </td>
+                        </tr>
+                    ) : (
+                        invoiceItems.map((item) => (
+                            <tr 
+                                key={item.id} 
+                                className={`border-t border-gray-200 dark:border-gray-700 ${
+                                    isDarkMode 
+                                        ? 'hover:bg-gray-700' 
+                                        : 'hover:bg-blue-50'
+                                }`}
+                            >
+                                <td className="px-3 py-2 text-center font-medium border-r border-blue-500">
+                                    {item.number}
+                                </td>
+                                <td className="px-3 py-2 text-center border-r border-blue-500">
+                                    {renderEditableCell(item.id, 'partNo', item.partNo, false)}
+                                </td>
+                                <td className="px-3 py-2 text-center border-r border-blue-500">
+                                    {renderEditableCell(item.id, 'description', item.description, false)}
+                                </td>
+                                <td className="px-3 py-2 text-center border-r border-blue-500">
+                                    {renderEditableCell(item.id, 'quantity', item.quantity, true)}
+                                </td>
+                                <td className="px-3 py-2 text-center border-r border-blue-500">
+                                    {renderEditableCell(item.id, 'unitPrice', item.unitPrice, true)}
+                                </td>
+                                <td className="px-3 py-2 text-center font-semibold text-green-600 dark:text-green-400 border-r border-blue-500">
+                                    {formatMoney(item.totalPrice)}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                    <button
+                                        onClick={() => deleteItem(item.id)}
+                                        className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs flex items-center justify-center gap-1 mx-auto"
+                                        title="Remove item"
+                                    >
+                                        <TrashIcon className="h-3 w-3" />
+                                        <span className="hidden sm:inline">Remove</span>
+                                    </button>
+                                </td>
+                            </tr>
+                        ))
+                    )}
+                </tbody>
+                
+                {invoiceItems.length > 0 && (
+                    <tfoot>
+                        <tr className={isDarkMode ? 'bg-amber-600 text-gray-900' : 'bg-yellow-400 text-gray-900'}>
+                            <td colSpan="5" className="px-3 py-2 text-center font-bold border-r border-blue-500">
+                                Total Invoice Amount:
+                            </td>
+                            <td className="px-3 py-2 text-center font-bold text-lg border-r border-blue-500">
+                                {formatMoney(invoiceTotal)}
+                            </td>
+                            <td className="px-3 py-2"></td>
+                        </tr>
+                    </tfoot>
+                )}
+            </table>
+        </div>
+    </div>
 
-                    {/* Add Empty Item Button */}
-                    <div className="flex justify-start mt-4">
-                        <button
-                            onClick={handleAddEmptyItem}
-                            className={`${buttonClass('green', 'sm')} flex items-center gap-2`}
-                        >
-                            <PlusIcon className="h-4 w-4" />
-                            Add Empty Item
-                        </button>
-                    </div>
-                </div>
+    {/* Add Empty Item Button */}
+    <div className="flex justify-start mt-4">
+        <button 
+            onClick={handleAddEmptyItem}
+            className={`${buttonClass('green', 'sm')} flex items-center gap-2`}
+        >
+            <PlusIcon className="h-4 w-4" />
+            Add Empty Item
+        </button>
+    </div>
+</div>
 
                 {/* Totals + Actions - Mobile Optimized */}
                 <div className={`p-4 ${cardClass}`}>
