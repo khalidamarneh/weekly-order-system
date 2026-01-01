@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/Admin";
 import ClientDashboard from "./pages/Client";
+import PublicLandingPage from "./components/PublicLandingPage";
 import { useEffect } from "react";
 
 // Simple hook that shows warning on EVERY back button click
@@ -83,7 +84,11 @@ function App() {
       <AuthProvider>
         <div className="min-h-screen bg-gradient-to-br from-white via-indigo-50 to-indigo-100">
           <Routes>
+            {/* Public routes - accessible without authentication */}
+            <Route path="/public" element={<PublicLandingPage />} />
             <Route path="/login" element={<Login />} />
+            
+            {/* Protected admin routes */}
             <Route
               path="/admin/*"
               element={
@@ -92,6 +97,8 @@ function App() {
                 </PrivateRoute>
               }
             />
+            
+            {/* Protected client routes */}
             <Route
               path="/client/*"
               element={
@@ -100,7 +107,12 @@ function App() {
                 </PrivateRoute>
               }
             />
-            <Route path="*" element={<Navigate to="/login" replace />} />
+            
+            {/* Default redirect - show public site as default landing */}
+            <Route path="/" element={<Navigate to="/public" replace />} />
+            
+            {/* Catch all - redirect to public site */}
+            <Route path="*" element={<Navigate to="/public" replace />} />
           </Routes>
         </div>
       </AuthProvider>

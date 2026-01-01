@@ -16,6 +16,7 @@ import InvoiceFromCsv from "../components/admin/Inbound_Invoices/InvoiceFromCsv"
 import InvoiceAnalytics from '../components/admin/Inbound_Invoices/InvoiceAnalytics';
 import { io } from "socket.io-client";
 import socketService from "../services/socket";
+import { GlobeIcon } from "@heroicons/react/outline"; // Add this line
 
 import {
   CogIcon,
@@ -1024,36 +1025,52 @@ useEffect(() => {
           </div>
           
           {/* Dark Mode Toggle - Compact */}
-          <button
-            onClick={toggleDarkMode}
-            className={`w-full text-left p-2 rounded-lg flex items-center space-x-2 text-sm ${
-              isDarkMode 
-                ? "bg-gray-800 text-gray-200 hover:bg-gray-700" 
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            {isDarkMode ? (
-              <svg className="h-4 w-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 01-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
-              </svg>
-            ) : (
-              <svg className="h-4 w-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-              </svg>
-            )}
-            <span className="font-medium">{isDarkMode ? "Light" : "Dark"}</span>
-          </button>
-          
-          {/* Logout - Compact */}
-          <button
-            onClick={() => setShowExitWarning(true)}
-            className="w-full text-left p-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors duration-200 flex items-center space-x-2 text-sm"
-          >
-            <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            <span>Logout</span>
-          </button>
+// In the Mobile Main Menu component, find the footer section and add:
+
+{/* Dark Mode Toggle - Compact */}
+<button
+  onClick={toggleDarkMode}
+  className={`w-full text-left p-2 rounded-lg flex items-center space-x-2 text-sm ${
+    isDarkMode 
+      ? "bg-gray-800 text-gray-200 hover:bg-gray-700" 
+      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+  }`}
+>
+  {isDarkMode ? (
+    <svg className="h-4 w-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 01-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+    </svg>
+  ) : (
+    <svg className="h-4 w-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+      <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+    </svg>
+  )}
+  <span className="font-medium">{isDarkMode ? "Light" : "Dark"}</span>
+</button>
+
+{/* ADD THIS NEW BUTTON IN MOBILE MENU */}
+<button
+  onClick={() => window.open('/public', '_blank')}
+  className={`w-full text-left p-2 rounded-lg flex items-center space-x-2 text-sm ${
+    isDarkMode 
+      ? "bg-gray-800 text-gray-200 hover:bg-gray-700" 
+      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+  }`}
+>
+  <GlobeIcon className="h-4 w-4 flex-shrink-0" />
+  <span className="font-medium">Public Site</span>
+</button>
+
+{/* Logout - Compact */}
+<button
+  onClick={() => setShowExitWarning(true)}
+  className="w-full text-left p-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors duration-200 flex items-center space-x-2 text-sm"
+>
+  <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+  </svg>
+  <span>Logout</span>
+</button>
         </div>
       </div>
     </div>
@@ -1132,14 +1149,23 @@ useEffect(() => {
                 )}
               </button>
               
-              <button
-                onClick={() => setShowExitWarning(true)}
-                className="bg-white/20 backdrop-blur-sm border border-white/30 text-white font-medium py-2 px-4 rounded-xl transition-all duration-300 hover:bg-white/30 text-sm"
-              >
-                Logout
-              </button>
-            </div>
-
+              {/* ADD THIS NEW BUTTON */}
+  <button
+    onClick={() => window.open('/public', '_blank')}
+    className="p-2 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 text-white transition-all duration-300 hover:bg-white/30 flex items-center"
+    title="Open Public Website"
+  >
+    <GlobeIcon className="h-4 w-4 mr-1" />
+    <span className="text-xs font-medium">Public Site</span>
+  </button>
+  
+  <button
+    onClick={() => setShowExitWarning(true)}
+    className="bg-white/20 backdrop-blur-sm border border-white/30 text-white font-medium py-2 px-4 rounded-xl transition-all duration-300 hover:bg-white/30 text-sm"
+  >
+    Logout
+  </button>
+</div>
             {/* Mobile Menu Button */}
             <div className="lg:hidden flex items-center space-x-2">
               <button
